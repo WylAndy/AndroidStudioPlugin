@@ -14,8 +14,10 @@ import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
 import org.apache.http.util.TextUtils;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.regex.Pattern;
 
 public class CreatePageViewAction extends AnAction {
 
@@ -27,6 +29,7 @@ public class CreatePageViewAction extends AnAction {
     private FragmentModel fragmentModel;
     private Project project;
     private PsiDirectoryFactory psiDirectoryFactory;
+
     @Override
     public void actionPerformed(AnActionEvent anActionEvent) {
         // TODO: insert action logic here
@@ -56,44 +59,36 @@ public class CreatePageViewAction extends AnAction {
             PsiPackage psiPackage = JavaDirectoryService.getInstance().getPackage(selectedDir);
             Objects.requireNonNull(psiPackage, "selected package is invalid");
             String packageName = psiPackage.getQualifiedName();
-            if (sourceDir == null) {
-                for (int i = 0; i < packageName.split("\\.").length; i++) {
-                    if (sourceDir == null) sourceDir = selectedDir.getParent();
-                    else sourceDir = sourceDir.getParent();
-                }
+            sourceDir = selectedDir.getParent();
+            if (sourceDir == null) return;
+            for (int i = 0; i < packageName.split("\\.").length; i++) {
+                sourceDir = sourceDir.getParent();
             }
-            if (rootDir == null) {
-                for (int i = 0; i < 3; i++) {
-                    assert sourceDir != null;
-                    if (rootDir == null) rootDir = sourceDir.getParent();
-                    else rootDir = rootDir.getParent();
-                }
+            rootDir = sourceDir.getParent();
+            for (int i = 0; i < 3; i++) {
+                rootDir = rootDir.getParent();
             }
-            assert sourceDir != null;
             activityList = getActivityList(sourceDir);
             if (pageFragmentDialog == null) {
+                List<String> layoutList = new ArrayList<>(4);
+                PsiClass psiClass = JavaPsiFacade.getInstance(project).findClass("androidx.constraintlayout.widget.ConstraintLayout", GlobalSearchScope.allScope(project));
+                if (psiClass != null) {
+                    layoutList.add("androidx.constraintlayout.widget.ConstraintLayout");
+                }
+                layoutList.add("RelativeLayout");
+                layoutList.add("LinearLayout");
+                layoutList.add("FrameLayout");
                 List<String> intentFlagList = new ArrayList<>(intentFlags.keySet());
-                pageFragmentDialog = new NewPageFragmentDialog(intentFlagList, activityList, packageName);
+                pageFragmentDialog = new NewPageFragmentDialog(intentFlagList, activityList, layoutList, packageName);
                 pageFragmentDialog.setOnCreateListener(new OnCreateListener());
             }
-
+            pageFragmentDialog.setPackageName(packageName);
+            pageFragmentDialog.setActivityList(activityList);
             pageFragmentDialog.setTitle("New PageFragment");
-//        findViewDialog.btnCopyCode.setText("OK");
-//        pageFragmentDialog.setOnClickListener(onClickListener);
             pageFragmentDialog.pack();
             pageFragmentDialog.setLocationRelativeTo(WindowManager.getInstance().getFrame(anActionEvent.getProject()));
             pageFragmentDialog.setVisible(true);
         }
-//        Module[] modules = ModuleManager.getInstance(project).getSortedModules();
-//        Module currentModule = null;
-//        for (Module module : modules) {
-//            if (module.getModuleScope(false).accept(selectedDir.getVirtualFile())) {
-//                currentModule = module;
-//                break;
-//            }
-//        }
-//        if (currentModule == null) return;
-
     }
 
     private List<String> getActivityList(PsiDirectory directory) {
@@ -105,13 +100,16 @@ public class CreatePageViewAction extends AnAction {
             VirtualFile[] children = virtualFile.getChildren();
             for (VirtualFile file : children) {
                 if (file.isDirectory()) {
-                    fileStack.push(file);
-                    PsiClass[] psiClasses = JavaDirectoryService.getInstance().getPackage(PsiDirectoryFactory.getInstance(project).createDirectory(file)).getClasses();
-                    if (psiClasses.length > 0) {
-                        for (PsiClass psiClass : psiClasses) {
-                            String activity = checkActivity(psiClass);
-                            if (!TextUtils.isEmpty(activity)) {
-                               activityList.add(activity);
+                    PsiDirectory psiDirectory = PsiDirectoryFactory.getInstance(project).createDirectory(file);
+                    if (PsiDirectoryFactory.getInstance(project).isPackage(psiDirectory)) {
+                        fileStack.push(file);
+                        PsiClass[] psiClasses = JavaDirectoryService.getInstance().getPackage(psiDirectory).getClasses();
+                        if (psiClasses.length > 0) {
+                            for (PsiClass psiClass : psiClasses) {
+                                String activity = checkActivity(psiClass);
+                                if (!TextUtils.isEmpty(activity)) {
+                                    activityList.add(activity);
+                                }
                             }
                         }
                     }
@@ -150,26 +148,26 @@ public class CreatePageViewAction extends AnAction {
             for (VirtualFile file : children) {
                 if (file.isDirectory()) {
                     fileStack.push(file);
-                        PsiClass[] psiClasses = JavaDirectoryService.getInstance().getPackage(PsiDirectoryFactory.getInstance(project).createDirectory(file)).getClasses();
-                        if (psiClasses.length > 0) {
-                            for (PsiClass psiClass : psiClasses) {
-                                String layoutName = getContentViewLayout(psiClass);
-                                if (!TextUtils.isEmpty(layoutName)) {
-                                    XmlFile xmlFile = (XmlFile) PsiManager.getInstance(project).findFile(VirtualFileManager.getInstance().getFileSystem("file").findFileByPath(String.format("%s/%s.xml", rootDir.getVirtualFile().getPath() + "/src/main/res/layout", layoutName)));
-                                    if (xmlFile != null) {
-                                        XmlTag[] xmlTags = xmlFile.getRootTag().getSubTags();
-                                        List<String> idList = new ArrayList<>(10);
-                                        for (XmlTag tag : xmlTags) {
-                                            String id = tag.getAttributeValue("android:id").replace("@+id/", "");
-                                            if (!TextUtils.isEmpty(id)) idList.add(id);
-                                        }
-                                        if (idList.size() > 0) {
-                                            activityMap.put(psiClass.getQualifiedName(), idList);
-                                        }
+                    PsiClass[] psiClasses = JavaDirectoryService.getInstance().getPackage(PsiDirectoryFactory.getInstance(project).createDirectory(file)).getClasses();
+                    if (psiClasses.length > 0) {
+                        for (PsiClass psiClass : psiClasses) {
+                            String layoutName = getContentViewLayout(psiClass);
+                            if (!TextUtils.isEmpty(layoutName)) {
+                                XmlFile xmlFile = (XmlFile) PsiManager.getInstance(project).findFile(VirtualFileManager.getInstance().getFileSystem("file").findFileByPath(String.format("%s/%s.xml", rootDir.getVirtualFile().getPath() + "/src/main/res/layout", layoutName)));
+                                if (xmlFile != null) {
+                                    XmlTag[] xmlTags = xmlFile.getRootTag().getSubTags();
+                                    List<String> idList = new ArrayList<>(10);
+                                    for (XmlTag tag : xmlTags) {
+                                        String id = tag.getAttributeValue("android:id").replace("@+id/", "");
+                                        if (!TextUtils.isEmpty(id)) idList.add(id);
+                                    }
+                                    if (idList.size() > 0) {
+                                        activityMap.put(psiClass.getQualifiedName(), idList);
                                     }
                                 }
                             }
                         }
+                    }
                 }
             }
             virtualFile = fileStack.size() > 0 ? fileStack.pop() : null;
@@ -210,47 +208,64 @@ public class CreatePageViewAction extends AnAction {
     }
 
 
-    private void showWarnTip(boolean isValid, String packageName) {
+    private void showWarnTip(boolean isValid, String labelName) {
+        pageFragmentDialog.setEnableOk(isValid);
         if (isValid) {
             pageFragmentDialog.showTip("");
         } else {
-            pageFragmentDialog.showTip(String.format("\"%s\" is not valid!", packageName));
+            pageFragmentDialog.showTip(String.format("%s is not set to a valid value", labelName));
+        }
+    }
+
+    @Override
+    public void update(@NotNull AnActionEvent anActionEvent) {
+        super.update(anActionEvent);
+        Object[] objects = anActionEvent.getData(PlatformDataKeys.SELECTED_ITEMS);
+        PsiDirectory selectedDir = null;
+        if (objects != null && objects.length > 0 && objects[0] instanceof PsiDirectory) {
+            anActionEvent.getPresentation().setVisible(true);
+        } else {
+            anActionEvent.getPresentation().setVisible(false);
         }
     }
 
     class OnCreateListener implements NewPageFragmentDialog.OnCreateListener {
+        private static final String validName = "^[a-zA-Z][a-zA-Z0-9_]*$";
 
         @Override
         public void onPackageChanged(String packageName) {
             boolean isValid = psiDirectoryFactory.isValidPackageName(packageName);
-            showWarnTip(isValid, packageName);
+            showWarnTip(isValid, "PageFragment Name");
         }
 
         @Override
         public void onFragmentNameChanged(String fragmentName) {
+            boolean isValid = Pattern.matches(validName, fragmentName);
+            showWarnTip(isValid, "PageFragment Name");
         }
 
         @Override
         public void onFragmentIdChanged(String fragmentId) {
+            boolean isValid = Pattern.matches(validName, fragmentId);
+            showWarnTip(isValid, "Fragment Id");
         }
 
         @Override
         public void onViewModelNameChanged(String viewModelName) {
+            boolean isValid = Pattern.matches(validName, viewModelName);
+            showWarnTip(isValid, "ViewModel Name");
         }
 
         @Override
         public void onViewModelPackageNameChanged(String viewModelPackageName) {
             boolean isValid = psiDirectoryFactory.isValidPackageName(viewModelPackageName);
-            showWarnTip(isValid, viewModelPackageName);
-        }
-
-        @Override
-        public void onFlagsSelected(List<String> flags) {
-
+            showWarnTip(isValid, "ViewModel Name");
         }
 
         @Override
         public void onContainerIdSelected(String containerId) {
+            boolean isValid = Pattern.matches(validName, containerId);
+            showWarnTip(isValid, "Container Id");
         }
 
         @Override
@@ -259,8 +274,32 @@ public class CreatePageViewAction extends AnAction {
         }
 
         @Override
+        public void onLayoutNameChanged(String layoutName) {
+            boolean isValid = Pattern.matches(validName, layoutName);
+            showWarnTip(isValid, "Layout Name");
+        }
+
+        @Override
+        public void onServerPackageChanged(String packageName) {
+            boolean isValid = psiDirectoryFactory.isValidPackageName(packageName);
+            showWarnTip(isValid, "TinyServer Name");
+        }
+
+        @Override
+        public void onServerNameChanged(String serverName) {
+            boolean isValid = Pattern.matches(validName, serverName);
+            showWarnTip(isValid, "TinyServer Name");
+        }
+
+        @Override
+        public void onServerIdChanged(String serverId) {
+            boolean isValid = Pattern.matches(validName, serverId);
+            showWarnTip(isValid, "TinyServer Id");
+        }
+
+        @Override
         public void onOK(FragmentModel model) {
-            model.setBasePath(sourceDir.getVirtualFile().getPath())
+            model.setBasePath(rootDir.getVirtualFile().getPath())
                     .setProject(project)
                     .build();
         }

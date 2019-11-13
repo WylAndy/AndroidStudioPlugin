@@ -1,12 +1,12 @@
 package com.browser.helper.plugin.view;
 
 import com.browser.helper.plugin.action.FragmentModel;
+import com.intellij.openapi.ui.Messages;
 import org.apache.http.util.TextUtils;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import javax.swing.table.DefaultTableModel;
 import javax.swing.text.BadLocationException;
 import java.awt.event.*;
 import java.util.List;
@@ -20,7 +20,7 @@ public class NewPageFragmentDialog extends JDialog {
     private JComboBox<String> activityNameView;
     private JComboBox<String> containerIds;
     private JList<String> intentFlags;
-    private JButton selectedButton;
+    private JButton clearButton;
     private JTextField pageFragmentId;
     private JTextField containerIdView;
     private JTabbedPane tabbedPane1;
@@ -28,21 +28,29 @@ public class NewPageFragmentDialog extends JDialog {
     private JTextField viewModelPackageName;
     private JTextField viewModelClassName;
     private JLabel tipLabel;
+    private JTextField layoutNameView;
+    private JComboBox rootElementView;
+    private JTextField serverClassNameView;
+    private JTextField serverPackageNameView;
+    private JTextField serverIdView;
     private List<String> intentFlagList;
     private List<String> activityList;
+    private List<String> layoutList;
 
     private OnCreateListener onCreateListener;
     private String selectedActivityName;
     private String selectedContainerId;
     private String packageName;
 
-    public NewPageFragmentDialog(List<String> intentFlagList, List<String> activityList, String packageName) {
+    public NewPageFragmentDialog(List<String> intentFlagList, List<String> activityList, List<String> layoutList, String packageName) {
         this.intentFlagList = intentFlagList;
         this.activityList = activityList;
+        this.layoutList = layoutList;
         this.packageName = packageName;
         setContentPane(contentPane);
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
+        activityNameView.setEditable(true);
 
         buttonOK.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -295,39 +303,203 @@ public class NewPageFragmentDialog extends JDialog {
             }
         });
 
-//        containerIds.addItemListener(new ItemListener() {
-//            @Override
-//            public void itemStateChanged(ItemEvent e) {
-//                String item = (String) e.getItem();
-//                if (!item.equals(selectedContainerId)) {
-//                    selectedContainerId = item;
-//                    if (onCreateListener != null) onCreateListener.onContainerIdSelected(selectedContainerId);
-//                }
-//            }
-//        });
         DefaultListModel<String> listModel = new DefaultListModel<>();
         for (String intentFlag : intentFlagList) {
             listModel.addElement(intentFlag);
         }
         intentFlags.setModel(listModel);
-        selectedButton.addActionListener(new ActionListener() {
+        clearButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                intentFlags.getSelectedValuesList().clear();
+                intentFlags.clearSelection();
             }
         });
 
-        DefaultTableModel tableModel = new DefaultTableModel();
+        serverIdView.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                int len = e.getDocument().getLength();
+                if (onCreateListener != null) {
+                    try {
+                        onCreateListener.onServerIdChanged(e.getDocument().getText(0, len));
+                    } catch (BadLocationException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
 
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                int len = e.getDocument().getLength();
+                if (onCreateListener != null) {
+                    try {
+                        onCreateListener.onServerIdChanged(e.getDocument().getText(0, len));
+                    } catch (BadLocationException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                int len = e.getDocument().getLength();
+                if (onCreateListener != null) {
+                    try {
+                        onCreateListener.onServerIdChanged(e.getDocument().getText(0, len));
+                    } catch (BadLocationException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+        });
+
+        serverPackageNameView.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                int len = e.getDocument().getLength();
+                if (onCreateListener != null) {
+                    try {
+                        onCreateListener.onServerPackageChanged(e.getDocument().getText(0, len));
+                    } catch (BadLocationException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                int len = e.getDocument().getLength();
+                if (onCreateListener != null) {
+                    try {
+                        onCreateListener.onServerPackageChanged(e.getDocument().getText(0, len));
+                    } catch (BadLocationException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                int len = e.getDocument().getLength();
+                if (onCreateListener != null) {
+                    try {
+                        onCreateListener.onServerPackageChanged(e.getDocument().getText(0, len));
+                    } catch (BadLocationException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+        });
+
+        serverClassNameView.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                int len = e.getDocument().getLength();
+                if (onCreateListener != null) {
+                    try {
+                        onCreateListener.onServerNameChanged(e.getDocument().getText(0, len));
+                    } catch (BadLocationException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                int len = e.getDocument().getLength();
+                if (onCreateListener != null) {
+                    try {
+                        onCreateListener.onServerNameChanged(e.getDocument().getText(0, len));
+                    } catch (BadLocationException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                int len = e.getDocument().getLength();
+                if (onCreateListener != null) {
+                    try {
+                        onCreateListener.onServerNameChanged(e.getDocument().getText(0, len));
+                    } catch (BadLocationException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+        });
+
+        layoutNameView.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                int len = e.getDocument().getLength();
+                if (onCreateListener != null) {
+                    try {
+                        onCreateListener.onLayoutNameChanged(e.getDocument().getText(0, len));
+                    } catch (BadLocationException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                int len = e.getDocument().getLength();
+                if (onCreateListener != null) {
+                    try {
+                        onCreateListener.onLayoutNameChanged(e.getDocument().getText(0, len));
+                    } catch (BadLocationException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                int len = e.getDocument().getLength();
+                if (onCreateListener != null) {
+                    try {
+                        onCreateListener.onLayoutNameChanged(e.getDocument().getText(0, len));
+                    } catch (BadLocationException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+        });
+
+        DefaultComboBoxModel<String> layoutModel = new DefaultComboBoxModel<>();
+        for (String layout : layoutList) {
+            layoutModel.addElement(layout);
+        }
+        rootElementView.setEditable(true);
+        rootElementView.setModel(layoutModel);
+    }
+
+    private boolean checkInputValid() {
+        if (TextUtils.isEmpty(containerIdView.getText())) {
+            Messages.showErrorDialog("Container Id is not set to a valid value", "Error");
+            return false;
+        } else if (TextUtils.isEmpty(pageFragmentId.getText())) {
+            Messages.showErrorDialog("PageFragment Id is not set to a valid value", "Error");
+            return false;
+        } else if (TextUtils.isEmpty(pageClassNameView.getText()) || TextUtils.isEmpty(pagePackageNameView.getText())) {
+            Messages.showErrorDialog("PageFragment Name is not set to a valid class name", "Error");
+            return false;
+        } else if (TextUtils.isEmpty(((String)activityNameView.getSelectedItem()))) {
+            Messages.showErrorDialog("Activity Name is not set to a valid class name", "Error");
+            return false;
+        }
+        return true;
     }
 
     private void onOK() {
+        if (!checkInputValid()) return;
         StringBuilder flagsBuilder = null;
         List<String> flags = intentFlags.getSelectedValuesList();
         int size = flags.size();
         if (size > 0) {
             flagsBuilder = new StringBuilder();
-            for (int i = 0; i < size; i ++) {
+            for (int i = 0; i < size; i++) {
                 flagsBuilder.append("android.content.Intent.").append(flags.get(i));
                 if (i < size - 1) flagsBuilder.append("|");
             }
@@ -340,6 +512,11 @@ public class NewPageFragmentDialog extends JDialog {
                 .setContainerId(containerIdView.getText())
                 .setActivityName((String) activityNameView.getSelectedItem())
                 .setViewModelName(viewModelClassName.getText())
+                .setLayoutName(layoutNameView.getText())
+                .setLayoutRootElement((String) rootElementView.getSelectedItem())
+                .setServerClassName(serverClassNameView.getText())
+                .setServerId(serverIdView.getText())
+                .setServerPackageName(serverPackageNameView.getText())
                 .setActivityFlags(flagsBuilder == null ? "" : flagsBuilder.toString());
         // add your code here
         if (onCreateListener != null) onCreateListener.onOK(fragmentModel);
@@ -349,6 +526,19 @@ public class NewPageFragmentDialog extends JDialog {
     private void onCancel() {
         // add your code here if necessary
         if (onCreateListener != null) onCreateListener.onCancel();
+        activityNameView.setSelectedIndex(0);
+        containerIdView.setText("");
+        pageFragmentId.setText("");
+        intentFlags.clearSelection();
+        pageClassNameView.setText("");
+        pagePackageNameView.setText(packageName);
+        layoutNameView.setText("");
+        rootElementView.setSelectedIndex(0);
+        viewModelPackageName.setText("");
+        viewModelClassName.setText("");
+        serverIdView.setText("");
+        serverPackageNameView.setText("");
+        serverClassNameView.setText("");
         dispose();
     }
 
@@ -374,16 +564,51 @@ public class NewPageFragmentDialog extends JDialog {
         tipLabel.setVisible(!isEmpty);
     }
 
+    public void setEnableOk(boolean isEnable) {
+        buttonOK.setEnabled(isEnable);
+    }
+
+    public void setPackageName(String packageName) {
+        this.packageName = packageName;
+        pagePackageNameView.setText(packageName);
+    }
+
+    public void setActivityList(List<String> activityList) {
+        if (activityList == null) return;
+        this.activityList = activityList;
+        DefaultComboBoxModel<String> listModel = new DefaultComboBoxModel<>();
+        for (String name : activityList) {
+            listModel.addElement(name);
+        }
+        activityNameView.setModel(listModel);
+        activityNameView.updateUI();
+    }
+
     public interface OnCreateListener {
         void onPackageChanged(String packageName);
+
         void onFragmentNameChanged(String fragmentName);
+
         void onFragmentIdChanged(String fragmentId);
+
         void onViewModelNameChanged(String viewModelName);
+
         void onViewModelPackageNameChanged(String viewModelPackageName);
-        void onFlagsSelected(List<String> flags);
+
         void onContainerIdSelected(String containerId);
+
         void onActivitySelected(String activityName);
+
+        void onLayoutNameChanged(String layoutName);
+
+        void onServerPackageChanged(String packageName);
+
+        void onServerNameChanged(String serverName);
+
+        void onServerIdChanged(String serverId);
+
         void onOK(FragmentModel model);
+
         void onCancel();
     }
 }
