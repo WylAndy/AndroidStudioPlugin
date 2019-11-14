@@ -5,14 +5,12 @@ import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.fileTypes.StdFileTypes;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.vfs.VirtualFileManager;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.JavaCodeStyleManager;
 import com.intellij.psi.impl.file.PsiDirectoryFactory;
 import com.intellij.psi.search.GlobalSearchScope;
 import org.apache.http.util.TextUtils;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 
@@ -31,11 +29,11 @@ public class FragmentModel implements Runnable {
     private String serverClassName;
     private String serverPackageName;
 
-    private String basePath;
+    private PsiDirectory rootDir;
     private Project project;
 
-    public FragmentModel(String basePath, Project project) {
-        this.basePath = basePath;
+    public FragmentModel(PsiDirectory rootDir, Project project) {
+        this.rootDir = rootDir;
         this.project = project;
     }
 
@@ -82,8 +80,8 @@ public class FragmentModel implements Runnable {
         return this;
     }
 
-    public FragmentModel setBasePath(String basePath) {
-        this.basePath = basePath;
+    public FragmentModel setRootDir(PsiDirectory rootDir) {
+        this.rootDir = rootDir;
         return this;
     }
 
@@ -154,22 +152,19 @@ public class FragmentModel implements Runnable {
     }
 
     private void buildClass() {
-        String srcDir = basePath + File.separator + "src/main/java";
+        PsiDirectory srcDir = rootDir.findSubdirectory("java");
         PsiDirectoryFactory psiDirectoryFactory = PsiDirectoryFactory.getInstance(project);
-        VirtualFile virtualFile = VirtualFileManager.getInstance().getFileSystem("file").findFileByPath(srcDir + File.separator + packageName.replace(".", "/"));
-        if (virtualFile != null) {
-            PsiClass fragmentClass = JavaDirectoryService.getInstance().createClass(psiDirectoryFactory.createDirectory(virtualFile), name);
+        VirtualFile packageFile = makeDirs(Objects.requireNonNull(srcDir).getVirtualFile(), packageName);
+        if (packageFile != null) {
+            PsiClass fragmentClass = JavaDirectoryService.getInstance().createClass(psiDirectoryFactory.createDirectory(packageFile), name);
             PsiElementFactory psiElementFactory = JavaPsiFacade.getInstance(project).getElementFactory();
             StringBuilder extendsElement = new StringBuilder();
             if (!TextUtils.isEmpty(viewModelName) && !TextUtils.isEmpty(viewModelPackageName)) {
                 extendsElement.append(String.format("com.browser.core.PageFragment<%s.%s>", viewModelPackageName, viewModelName));
-                String path = srcDir + File.separator + viewModelPackageName.replace(".", "/");
-                VirtualFile packageFile = VirtualFileManager.getInstance().getFileSystem("file").findFileByPath(path);
-                if (packageFile == null) {
-                    VirtualFile rootFile = VirtualFileManager.getInstance().getFileSystem("file").findFileByPath(srcDir);
-                    packageFile = makeDirs(rootFile, viewModelPackageName, "\\.");
+                VirtualFile modelPackageFile = makeDirs(srcDir.getVirtualFile(), viewModelPackageName);
+                if (modelPackageFile.findChild(viewModelName + ".java") == null) {
+                    JavaDirectoryService.getInstance().createClass(psiDirectoryFactory.createDirectory(modelPackageFile), viewModelName);
                 }
-                JavaDirectoryService.getInstance().createClass(psiDirectoryFactory.createDirectory(packageFile), viewModelName);
             } else {
                 extendsElement.append("com.browser.core.PageFragment");
             }
@@ -179,53 +174,44 @@ public class FragmentModel implements Runnable {
             fragmentClass.addBefore(annotation, fragmentClass.getFirstChild());
             PsiClass serverClass = null;
             if (!TextUtils.isEmpty(serverClassName) && !TextUtils.isEmpty(serverPackageName)) {
-                String path = srcDir + File.separator + serverPackageName.replace(".", "/");
-                VirtualFile packageFile = VirtualFileManager.getInstance().getFileSystem("file").findFileByPath(path);
-                if (packageFile == null) {
-                    VirtualFile rootFile = VirtualFileManager.getInstance().getFileSystem("file").findFileByPath(srcDir);
-                    packageFile = makeDirs(rootFile, serverPackageName, "\\.");
+                VirtualFile serverPackageFile = makeDirs(srcDir.getVirtualFile(), serverPackageName);
+                if (serverPackageFile.findChild(serverClassName + ".java") == null) {
+                    PsiDirectory psiDirectory = psiDirectoryFactory.createDirectory(serverPackageFile);
+                    serverClass = JavaDirectoryService.getInstance().createClass(psiDirectory, serverClassName);
+                    JavaDirectoryService.getInstance().createInterface(psiDirectory, "I" + serverClassName);
+                    PsiElement implement = psiElementFactory.createReferenceElementByFQClassName(serverPackageName + "." + "I" + serverClassName, GlobalSearchScope.allScope(project));
+                    Objects.requireNonNull(serverClass.getImplementsList()).add(implement);
+                    String builder = String.format("@com.browser.annotations.TinyServer( name = \"%s\")", serverId);
+                    PsiElement serverAnnotation = psiElementFactory.createAnnotationFromText(builder, serverClass);
+                    serverClass.addBefore(serverAnnotation, serverClass.getFirstChild());
                 }
-                PsiDirectory psiDirectory = psiDirectoryFactory.createDirectory(packageFile);
-                serverClass = JavaDirectoryService.getInstance().createClass(psiDirectory, serverClassName);
-                JavaDirectoryService.getInstance().createInterface(psiDirectory, "I" + serverClassName);
-                PsiElement implement = psiElementFactory.createReferenceElementByFQClassName(serverPackageName + "." + "I" + serverClassName, GlobalSearchScope.allScope(project));
-                serverClass.getImplementsList().add(implement);
-                StringBuilder builder = new StringBuilder();
-                builder.append("@com.browser.annotations.TinyServer(");
-                builder.append(String.format("name = \"%s\")", serverId));
-                PsiElement serverAnnotation = psiElementFactory.createAnnotationFromText(builder.toString(), serverClass);
-                serverClass.addBefore(serverAnnotation, serverClass.getFirstChild());
                 String iServer = "I" + serverClassName;
-                PsiElement var = psiElementFactory.createFieldFromText(String.format("private %s.%s m%s;", serverPackageName, iServer, serverClassName), serverClass);
-                fragmentClass.add(var);
-                PsiMethod onCreate = psiElementFactory.createMethodFromText(String.format("@Override\n" +
-                        "            public void onCreate(%s savedInstanceState) {\n" +
-                        "               super.onCreate(savedInstanceState);\n" +
-                        "               m%s = com.browser.core.Browser.getInstance().create(%s.%s.class);\n" +
-                        "            }", "android.os.Bundle", serverClassName, serverPackageName, iServer), fragmentClass);
-                fragmentClass.add(onCreate);
+                if (JavaPsiFacade.getInstance(project).findClass(String.format("%s.I%s", serverPackageName, serverClassName), GlobalSearchScope.allScope(project)) != null) {
+                    PsiElement var = psiElementFactory.createFieldFromText(String.format("private %s.%s m%s;", serverPackageName, iServer, serverClassName), serverClass);
+                    fragmentClass.add(var);
+                    PsiMethod onCreate = psiElementFactory.createMethodFromText(String.format("@Override\n" +
+                            "            public void onCreate(%s savedInstanceState) {\n" +
+                            "               super.onCreate(savedInstanceState);\n" +
+                            "               m%s = com.browser.core.Browser.getInstance().create(%s.%s.class);\n" +
+                            "            }", "android.os.Bundle", serverClassName, serverPackageName, iServer), fragmentClass);
+                    fragmentClass.add(onCreate);
+                }
             }
             if (!TextUtils.isEmpty(layoutName)) {
-                String resDir = basePath + File.separator + "src/main/res/layout";
-                VirtualFile resFile = VirtualFileManager.getInstance().getFileSystem("file").findFileByPath(resDir);
-                if (resFile == null) {
-                    VirtualFile baseFile = VirtualFileManager.getInstance().getFileSystem("file").findFileByPath(basePath);
-                    resFile = makeDirs(baseFile, "src/main/res/layout", "/");
-                }
+                PsiDirectory resDir = rootDir.findSubdirectory("res");
+                VirtualFile resFile = makeDirs(Objects.requireNonNull(resDir).getVirtualFile(), "layout");
                 PsiDirectory psiDirectory = PsiDirectoryFactory.getInstance(project).createDirectory(resFile);
                 PsiFile xmlFile = psiDirectory.findFile(layoutName + ".xml");
                 if (xmlFile == null) {
-                    StringBuilder xmlBuilder = new StringBuilder();
-                    xmlBuilder.append("<?xml version=\"1.0\" encoding=\"utf-8\"?>").append("\n");
-                    xmlBuilder.append("<").append(layoutRootElement).append("\n");
-                    xmlBuilder.append("" +
+                    String xmlBuilder = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + "\n" +
+                            "<" + layoutRootElement + "\n" +
                             "        xmlns:android=\"http://schemas.android.com/apk/res/android\"\n" +
                             "        xmlns:tools=\"http://schemas.android.com/tools\"\n" +
                             "        xmlns:app=\"http://schemas.android.com/apk/res-auto\"\n" +
                             "        android:layout_width=\"match_parent\"\n" +
-                            "        android:layout_height=\"match_parent\">").append("\n");
-                    xmlBuilder.append(String.format("</%s>", layoutRootElement));
-                    xmlFile = PsiFileFactory.getInstance(project).createFileFromText(layoutName + ".xml", StdFileTypes.XML, xmlBuilder.toString());
+                            "        android:layout_height=\"match_parent\">\n" +
+                            String.format("</%s>", layoutRootElement);
+                    xmlFile = PsiFileFactory.getInstance(project).createFileFromText(layoutName + ".xml", StdFileTypes.XML, xmlBuilder);
                     psiDirectory.add(xmlFile);
                 }
                 PsiMethod onCreateView = psiElementFactory.createMethodFromText(String.format("@Override\n" +
@@ -274,8 +260,8 @@ public class FragmentModel implements Runnable {
         WriteCommandAction.runWriteCommandAction(project, this);
     }
 
-    private VirtualFile makeDirs(VirtualFile virtualFile, String path, String regex) {
-        String[] subDirs = path.contains(regex) ? path.split(regex) : new String[]{path};
+    private VirtualFile makeDirs(VirtualFile virtualFile, String path) {
+        String[] subDirs = path.contains(".") ? path.split("\\.") : path.contains("/") ? path.split("/") : new String[]{path};
         VirtualFile rootFile = virtualFile;
         for (String subDir : subDirs) {
             VirtualFile childFile = rootFile.findChild(subDir);

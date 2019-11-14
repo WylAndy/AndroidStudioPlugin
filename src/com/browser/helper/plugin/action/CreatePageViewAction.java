@@ -3,7 +3,9 @@ package com.browser.helper.plugin.action;
 import com.browser.helper.plugin.view.NewPageFragmentDialog;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.LangDataKeys;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
+import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileManager;
@@ -23,72 +25,64 @@ public class CreatePageViewAction extends AnAction {
 
     private NewPageFragmentDialog pageFragmentDialog;
     private static Map<String, Integer> intentFlags;
-    private List<String> activityList;
     private PsiDirectory rootDir = null;
-    private PsiDirectory sourceDir = null;
-    private FragmentModel fragmentModel;
     private Project project;
     private PsiDirectoryFactory psiDirectoryFactory;
+    private PsiDirectory selectedDir = null;
+    private boolean isShow = false;
 
     @Override
     public void actionPerformed(AnActionEvent anActionEvent) {
         // TODO: insert action logic here
-        project = anActionEvent.getProject();
-        psiDirectoryFactory = PsiDirectoryFactory.getInstance(project);
-        Object[] objects = anActionEvent.getData(PlatformDataKeys.SELECTED_ITEMS);
-        PsiDirectory selectedDir = null;
-        if (objects != null && objects.length > 0 && objects[0] instanceof PsiDirectory) {
-            selectedDir = (PsiDirectory) objects[0];
+        if (!isShow) return;
+        Module module = anActionEvent.getData(LangDataKeys.MODULE);
+        if (module == null) {
+            return;
         }
-        if (selectedDir == null) return;
-        boolean isPackage = PsiDirectoryFactory.getInstance(project).isPackage(selectedDir);
-        if (isPackage) {
-            if (intentFlags == null) {
-                intentFlags = new HashMap<>(21);
-                PsiClass psiClass = JavaPsiFacade.getInstance(project).findClass("android.content.Intent", GlobalSearchScope.allScope(project));
-                if (psiClass == null) return;
-                PsiField[] psiFields = psiClass.getFields();
-                for (PsiField psiField : psiFields) {
-                    String fieldName = psiField.getName();
-                    if (fieldName != null && fieldName.startsWith("FLAG_ACTIVITY_")) {
-                        intentFlags.put(fieldName, (Integer) psiField.computeConstantValue());
-                    }
+        psiDirectoryFactory = PsiDirectoryFactory.getInstance(Objects.requireNonNull(project));
+        VirtualFile rootFile = Objects.requireNonNull(Objects.requireNonNull(module.getModuleFile()).getParent().findChild("src")).findChild("main");
+        if (rootFile == null) {
+            return;
+        }
+        rootDir = psiDirectoryFactory.createDirectory(rootFile);
+        if (intentFlags == null) {
+            intentFlags = new HashMap<>(21);
+            PsiClass psiClass = JavaPsiFacade.getInstance(project).findClass("android.content.Intent", GlobalSearchScope.allScope(project));
+            if (psiClass == null) return;
+            PsiField[] psiFields = psiClass.getFields();
+            for (PsiField psiField : psiFields) {
+                String fieldName = psiField.getName();
+                if (fieldName != null && fieldName.startsWith("FLAG_ACTIVITY_")) {
+                    intentFlags.put(fieldName, (Integer) psiField.computeConstantValue());
                 }
             }
-
-            PsiPackage psiPackage = JavaDirectoryService.getInstance().getPackage(selectedDir);
-            Objects.requireNonNull(psiPackage, "selected package is invalid");
-            String packageName = psiPackage.getQualifiedName();
-            sourceDir = selectedDir.getParent();
-            if (sourceDir == null) return;
-            for (int i = 0; i < packageName.split("\\.").length; i++) {
-                sourceDir = sourceDir.getParent();
-            }
-            rootDir = sourceDir.getParent();
-            for (int i = 0; i < 3; i++) {
-                rootDir = rootDir.getParent();
-            }
-            activityList = getActivityList(sourceDir);
-            if (pageFragmentDialog == null) {
-                List<String> layoutList = new ArrayList<>(4);
-                PsiClass psiClass = JavaPsiFacade.getInstance(project).findClass("androidx.constraintlayout.widget.ConstraintLayout", GlobalSearchScope.allScope(project));
-                if (psiClass != null) {
-                    layoutList.add("androidx.constraintlayout.widget.ConstraintLayout");
-                }
-                layoutList.add("RelativeLayout");
-                layoutList.add("LinearLayout");
-                layoutList.add("FrameLayout");
-                List<String> intentFlagList = new ArrayList<>(intentFlags.keySet());
-                pageFragmentDialog = new NewPageFragmentDialog(intentFlagList, activityList, layoutList, packageName);
-                pageFragmentDialog.setOnCreateListener(new OnCreateListener());
-            }
-            pageFragmentDialog.setPackageName(packageName);
-            pageFragmentDialog.setActivityList(activityList);
-            pageFragmentDialog.setTitle("New PageFragment");
-            pageFragmentDialog.pack();
-            pageFragmentDialog.setLocationRelativeTo(WindowManager.getInstance().getFrame(anActionEvent.getProject()));
-            pageFragmentDialog.setVisible(true);
         }
+        PsiPackage psiPackage = selectedDir != null ? JavaDirectoryService.getInstance().getPackage(selectedDir) : null;
+        String packageName = psiPackage != null ? psiPackage.getQualifiedName() : "";
+        PsiDirectory sourceDir = rootDir.findSubdirectory("java");
+        if (sourceDir == null) {
+            return;
+        }
+        List<String> activityList = getActivityList(sourceDir);
+        List<String> packageList = getPackageList(sourceDir);
+        List<String> layoutList = new ArrayList<>(4);
+        PsiClass psiClass = JavaPsiFacade.getInstance(project).findClass("androidx.constraintlayout.widget.ConstraintLayout", GlobalSearchScope.allScope(project));
+        if (psiClass != null) {
+            layoutList.add("androidx.constraintlayout.widget.ConstraintLayout");
+        }
+        layoutList.add("RelativeLayout");
+        layoutList.add("LinearLayout");
+        layoutList.add("FrameLayout");
+        List<String> intentFlagList = new ArrayList<>(intentFlags.keySet());
+        pageFragmentDialog = new NewPageFragmentDialog(intentFlagList, activityList, layoutList);
+        pageFragmentDialog.setPackageName(packageName);
+        pageFragmentDialog.setOnCreateListener(new OnCreateListener());
+        pageFragmentDialog.setPackageList(packageList);
+        pageFragmentDialog.setActivityList(activityList);
+        pageFragmentDialog.setTitle("New PageFragment");
+        pageFragmentDialog.pack();
+        pageFragmentDialog.setLocationRelativeTo(WindowManager.getInstance().getFrame(anActionEvent.getProject()));
+        pageFragmentDialog.setVisible(true);
     }
 
     private List<String> getActivityList(PsiDirectory directory) {
@@ -120,6 +114,32 @@ public class CreatePageViewAction extends AnAction {
         return activityList;
     }
 
+    private List<String> getPackageList(@NotNull PsiDirectory rootDir) {
+        List<PsiDirectory> subdirectories = getSubdirectories(rootDir);
+        List<String> packageList = new ArrayList<>(10);
+        for (PsiDirectory subDir : subdirectories) {
+            PsiPackage psiPackage = JavaDirectoryService.getInstance().getPackage(subDir);
+            if (psiPackage != null)
+                packageList.add(psiPackage.getQualifiedName());
+        }
+        return packageList;
+    }
+
+    private List<PsiDirectory> getSubdirectories(@NotNull PsiDirectory rootDir) {
+        PsiDirectory subDirectory = rootDir;
+        Stack<PsiDirectory> dirStack = new Stack<>();
+        List<PsiDirectory> subDirectoryList = new ArrayList<>(10);
+        while (subDirectory != null) {
+            PsiDirectory[] subdirectories = subDirectory.getSubdirectories();
+            for (PsiDirectory subDir : subdirectories) {
+                dirStack.push(subDir);
+                subDirectoryList.add(subDir);
+            }
+            subDirectory = dirStack.size() > 0 ? dirStack.pop() : null;
+        }
+        return subDirectoryList;
+    }
+
     private String checkActivity(PsiClass psiClass) {
         if (psiClass == null) return null;
         PsiMethod[] methods = psiClass.findMethodsByName("onCreate", true);
@@ -128,7 +148,7 @@ public class CreatePageViewAction extends AnAction {
         PsiMethod lastMethod = methods[length - 1];
         PsiElement element = lastMethod.getParent();
         if (element instanceof PsiClass) {
-            if (((PsiClass) element).getQualifiedName().equals("android.app.Activity")) {
+            if (Objects.equals(((PsiClass) element).getQualifiedName(), "android.app.Activity")) {
                 return psiClass.getQualifiedName();
             } else {
                 return null;
@@ -220,12 +240,28 @@ public class CreatePageViewAction extends AnAction {
     @Override
     public void update(@NotNull AnActionEvent anActionEvent) {
         super.update(anActionEvent);
-        Object[] objects = anActionEvent.getData(PlatformDataKeys.SELECTED_ITEMS);
-        PsiDirectory selectedDir = null;
-        if (objects != null && objects.length > 0 && objects[0] instanceof PsiDirectory) {
-            anActionEvent.getPresentation().setVisible(true);
-        } else {
+        VirtualFile[] virtualFiles = anActionEvent.getData(PlatformDataKeys.VIRTUAL_FILE_ARRAY);
+        if (virtualFiles == null) {
+            isShow = false;
             anActionEvent.getPresentation().setVisible(false);
+            return;
+        }
+        project = anActionEvent.getProject();
+        PsiClass psiClass = JavaPsiFacade.getInstance(Objects.requireNonNull(project)).findClass("com.browser.core.Browser", GlobalSearchScope.allScope(project));
+        if (psiClass == null) {
+            isShow = false;
+            anActionEvent.getPresentation().setVisible(false);
+            return;
+        }
+        isShow = true;
+        if (virtualFiles.length > 1) {
+
+        }
+        Object[] objects = anActionEvent.getData(PlatformDataKeys.SELECTED_ITEMS);
+        if (objects != null && objects.length > 0 && objects[0] instanceof PsiDirectory) {
+            selectedDir = PsiDirectoryFactory.getInstance(project).createDirectory(Objects.requireNonNull(anActionEvent.getData(PlatformDataKeys.VIRTUAL_FILE)));
+        } else {
+            selectedDir = null;
         }
     }
 
@@ -270,7 +306,8 @@ public class CreatePageViewAction extends AnAction {
 
         @Override
         public void onActivitySelected(String activityName) {
-
+            boolean isValid = psiDirectoryFactory.isValidPackageName(activityName);
+            showWarnTip(isValid, "Activity Name");
         }
 
         @Override
@@ -299,7 +336,7 @@ public class CreatePageViewAction extends AnAction {
 
         @Override
         public void onOK(FragmentModel model) {
-            model.setBasePath(rootDir.getVirtualFile().getPath())
+            model.setRootDir(rootDir)
                     .setProject(project)
                     .build();
         }

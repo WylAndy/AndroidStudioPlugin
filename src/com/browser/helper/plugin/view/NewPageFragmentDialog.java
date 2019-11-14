@@ -15,7 +15,7 @@ public class NewPageFragmentDialog extends JDialog {
     private JPanel contentPane;
     private JButton buttonOK;
     private JButton buttonCancel;
-    private JTextField pagePackageNameView;
+    private JComboBox<String> pagePackageNameView;
     private JTextField pageClassNameView;
     private JComboBox<String> activityNameView;
     private JComboBox<String> containerIds;
@@ -25,28 +25,27 @@ public class NewPageFragmentDialog extends JDialog {
     private JTextField containerIdView;
     private JTabbedPane tabbedPane1;
     private JPanel ViewModel;
-    private JTextField viewModelPackageName;
+    private JComboBox<String> viewModelPackageName;
     private JTextField viewModelClassName;
     private JLabel tipLabel;
     private JTextField layoutNameView;
     private JComboBox rootElementView;
     private JTextField serverClassNameView;
-    private JTextField serverPackageNameView;
+    private JComboBox<String> serverPackageNameView;
     private JTextField serverIdView;
     private List<String> intentFlagList;
     private List<String> activityList;
     private List<String> layoutList;
+    private List<String> packageList;
 
     private OnCreateListener onCreateListener;
     private String selectedActivityName;
     private String selectedContainerId;
-    private String packageName;
 
-    public NewPageFragmentDialog(List<String> intentFlagList, List<String> activityList, List<String> layoutList, String packageName) {
+    public NewPageFragmentDialog(List<String> intentFlagList, List<String> activityList, List<String> layoutList) {
         this.intentFlagList = intentFlagList;
         this.activityList = activityList;
         this.layoutList = layoutList;
-        this.packageName = packageName;
         setContentPane(contentPane);
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
@@ -79,41 +78,24 @@ public class NewPageFragmentDialog extends JDialog {
             }
         }, KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
 
-        pagePackageNameView.setText(packageName);
-        pagePackageNameView.getDocument().addDocumentListener(new DocumentListener() {
+        pagePackageNameView.getEditor().getEditorComponent().addKeyListener(new KeyListener() {
             @Override
-            public void insertUpdate(DocumentEvent e) {
-                int len = e.getDocument().getLength();
-                try {
-                    String content = e.getDocument().getText(0, len);
-                    if (onCreateListener != null) onCreateListener.onPackageChanged(content);
-                } catch (BadLocationException ex) {
-                    ex.printStackTrace();
-                }
+            public void keyTyped(KeyEvent e) {
+
             }
 
             @Override
-            public void removeUpdate(DocumentEvent e) {
-                int len = e.getDocument().getLength();
-                try {
-                    String content = e.getDocument().getText(0, len);
-                    if (onCreateListener != null) onCreateListener.onPackageChanged(content);
-                } catch (BadLocationException ex) {
-                    ex.printStackTrace();
-                }
+            public void keyPressed(KeyEvent e) {
+
             }
 
             @Override
-            public void changedUpdate(DocumentEvent e) {
-                int len = e.getDocument().getLength();
-                try {
-                    String content = e.getDocument().getText(0, len);
-                    if (onCreateListener != null) onCreateListener.onPackageChanged(content);
-                } catch (BadLocationException ex) {
-                    ex.printStackTrace();
-                }
+            public void keyReleased(KeyEvent e) {
+                JTextField jTextField = (JTextField) e.getSource();
+                if (onCreateListener != null) onCreateListener.onPackageChanged(jTextField.getText());
             }
         });
+
         pageFragmentId.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
@@ -216,38 +198,21 @@ public class NewPageFragmentDialog extends JDialog {
                 }
             }
         });
-        viewModelPackageName.getDocument().addDocumentListener(new DocumentListener() {
+        viewModelPackageName.getEditor().getEditorComponent().addKeyListener(new KeyListener() {
             @Override
-            public void insertUpdate(DocumentEvent e) {
-                int len = e.getDocument().getLength();
-                try {
-                    String content = e.getDocument().getText(0, len);
-                    if (onCreateListener != null) onCreateListener.onViewModelPackageNameChanged(content);
-                } catch (BadLocationException ex) {
-                    ex.printStackTrace();
-                }
+            public void keyTyped(KeyEvent e) {
+
             }
 
             @Override
-            public void removeUpdate(DocumentEvent e) {
-                int len = e.getDocument().getLength();
-                try {
-                    String content = e.getDocument().getText(0, len);
-                    if (onCreateListener != null) onCreateListener.onViewModelPackageNameChanged(content);
-                } catch (BadLocationException ex) {
-                    ex.printStackTrace();
-                }
+            public void keyPressed(KeyEvent e) {
+
             }
 
             @Override
-            public void changedUpdate(DocumentEvent e) {
-                int len = e.getDocument().getLength();
-                try {
-                    String content = e.getDocument().getText(0, len);
-                    if (onCreateListener != null) onCreateListener.onViewModelPackageNameChanged(content);
-                } catch (BadLocationException ex) {
-                    ex.printStackTrace();
-                }
+            public void keyReleased(KeyEvent e) {
+                JTextField jTextField = (JTextField) e.getSource();
+                if (onCreateListener != null) onCreateListener.onViewModelPackageNameChanged(jTextField.getText());
             }
         });
         containerIdView.getDocument().addDocumentListener(new DocumentListener() {
@@ -292,13 +257,22 @@ public class NewPageFragmentDialog extends JDialog {
             }
             activityNameView.setModel(listModel);
         }
-        activityNameView.addItemListener(new ItemListener() {
+        activityNameView.getEditor().getEditorComponent().addKeyListener(new KeyListener() {
             @Override
-            public void itemStateChanged(ItemEvent e) {
-                String item = (String) e.getItem();
-                if (!item.equals(selectedActivityName)) {
-                    selectedActivityName = (String) activityNameView.getSelectedItem();
-                    if (onCreateListener != null) onCreateListener.onActivitySelected(selectedActivityName);
+            public void keyTyped(KeyEvent e) {
+
+            }
+
+            @Override
+            public void keyPressed(KeyEvent e) {
+
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                if (onCreateListener != null) {
+                    JTextField jTextField = (JTextField) e.getSource();
+                    onCreateListener.onActivitySelected(jTextField.getText());
                 }
             }
         });
@@ -352,45 +326,22 @@ public class NewPageFragmentDialog extends JDialog {
                 }
             }
         });
-
-        serverPackageNameView.getDocument().addDocumentListener(new DocumentListener() {
+        ComboBoxEditor boxEditor = serverPackageNameView.getEditor();
+        boxEditor.getEditorComponent().addKeyListener(new KeyListener() {
             @Override
-            public void insertUpdate(DocumentEvent e) {
-                int len = e.getDocument().getLength();
-                if (onCreateListener != null) {
-                    try {
-                        onCreateListener.onServerPackageChanged(e.getDocument().getText(0, len));
-                    } catch (BadLocationException ex) {
-                        ex.printStackTrace();
-                    }
-                }
+            public void keyTyped(KeyEvent e) {
             }
 
             @Override
-            public void removeUpdate(DocumentEvent e) {
-                int len = e.getDocument().getLength();
-                if (onCreateListener != null) {
-                    try {
-                        onCreateListener.onServerPackageChanged(e.getDocument().getText(0, len));
-                    } catch (BadLocationException ex) {
-                        ex.printStackTrace();
-                    }
-                }
+            public void keyPressed(KeyEvent e) {
             }
 
             @Override
-            public void changedUpdate(DocumentEvent e) {
-                int len = e.getDocument().getLength();
-                if (onCreateListener != null) {
-                    try {
-                        onCreateListener.onServerPackageChanged(e.getDocument().getText(0, len));
-                    } catch (BadLocationException ex) {
-                        ex.printStackTrace();
-                    }
-                }
+            public void keyReleased(KeyEvent e) {
+                JTextField jTextField = (JTextField) e.getSource();
+                if (onCreateListener != null) onCreateListener.onServerPackageChanged(jTextField.getText());
             }
         });
-
         serverClassNameView.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
@@ -482,10 +433,10 @@ public class NewPageFragmentDialog extends JDialog {
         } else if (TextUtils.isEmpty(pageFragmentId.getText())) {
             Messages.showErrorDialog("PageFragment Id is not set to a valid value", "Error");
             return false;
-        } else if (TextUtils.isEmpty(pageClassNameView.getText()) || TextUtils.isEmpty(pagePackageNameView.getText())) {
+        } else if (TextUtils.isEmpty(pageClassNameView.getText()) || TextUtils.isEmpty((String) pagePackageNameView.getSelectedItem())) {
             Messages.showErrorDialog("PageFragment Name is not set to a valid class name", "Error");
             return false;
-        } else if (TextUtils.isEmpty(((String)activityNameView.getSelectedItem()))) {
+        } else if (TextUtils.isEmpty(((String) activityNameView.getSelectedItem()))) {
             Messages.showErrorDialog("Activity Name is not set to a valid class name", "Error");
             return false;
         }
@@ -505,9 +456,9 @@ public class NewPageFragmentDialog extends JDialog {
             }
         }
         FragmentModel fragmentModel = new FragmentModel();
-        fragmentModel.setViewModelPackageName(viewModelPackageName.getText())
+        fragmentModel.setViewModelPackageName((String) viewModelPackageName.getSelectedItem())
                 .setName(pageClassNameView.getText())
-                .setPackageName(pagePackageNameView.getText())
+                .setPackageName((String) pagePackageNameView.getSelectedItem())
                 .setId(pageFragmentId.getText())
                 .setContainerId(containerIdView.getText())
                 .setActivityName((String) activityNameView.getSelectedItem())
@@ -516,30 +467,40 @@ public class NewPageFragmentDialog extends JDialog {
                 .setLayoutRootElement((String) rootElementView.getSelectedItem())
                 .setServerClassName(serverClassNameView.getText())
                 .setServerId(serverIdView.getText())
-                .setServerPackageName(serverPackageNameView.getText())
+                .setServerPackageName((String) serverPackageNameView.getSelectedItem())
                 .setActivityFlags(flagsBuilder == null ? "" : flagsBuilder.toString());
         // add your code here
         if (onCreateListener != null) onCreateListener.onOK(fragmentModel);
+        clear();
         dispose();
     }
 
     private void onCancel() {
         // add your code here if necessary
         if (onCreateListener != null) onCreateListener.onCancel();
-        activityNameView.setSelectedIndex(0);
+        clear();
+        dispose();
+    }
+
+    private void clear() {
+        if (activityNameView.getModel().getSize() > 0)
+            activityNameView.setSelectedIndex(0);
         containerIdView.setText("");
         pageFragmentId.setText("");
         intentFlags.clearSelection();
         pageClassNameView.setText("");
-        pagePackageNameView.setText(packageName);
+        if (pagePackageNameView.getModel().getSize() > 0)
+            pagePackageNameView.setSelectedIndex(0);
         layoutNameView.setText("");
-        rootElementView.setSelectedIndex(0);
-        viewModelPackageName.setText("");
+        if (rootElementView.getModel().getSize() > 0)
+            rootElementView.setSelectedIndex(0);
+        if (viewModelPackageName.getModel().getSize() > 0)
+            viewModelPackageName.setSelectedIndex(0);
         viewModelClassName.setText("");
         serverIdView.setText("");
-        serverPackageNameView.setText("");
+        if (serverPackageNameView.getModel().getSize() > 0)
+            serverPackageNameView.setSelectedIndex(0);
         serverClassNameView.setText("");
-        dispose();
     }
 
 //    public static void main(String[] args) {
@@ -569,8 +530,7 @@ public class NewPageFragmentDialog extends JDialog {
     }
 
     public void setPackageName(String packageName) {
-        this.packageName = packageName;
-        pagePackageNameView.setText(packageName);
+        pagePackageNameView.setSelectedItem(packageName);
     }
 
     public void setActivityList(List<String> activityList) {
@@ -581,7 +541,22 @@ public class NewPageFragmentDialog extends JDialog {
             listModel.addElement(name);
         }
         activityNameView.setModel(listModel);
-        activityNameView.updateUI();
+    }
+
+    public void setPackageList(List<String> packageList) {
+        if (packageList == null || packageList.size() == 0) return;
+        DefaultComboBoxModel<String> listModel = new DefaultComboBoxModel<>();
+        DefaultComboBoxModel<String> listModel1 = new DefaultComboBoxModel<>();
+        DefaultComboBoxModel<String> listModel2 = new DefaultComboBoxModel<>();
+
+        for (String packageName : packageList) {
+            listModel.addElement(packageName);
+            listModel1.addElement(packageName);
+            listModel2.addElement(packageName);
+        }
+        pagePackageNameView.setModel(listModel);
+        viewModelPackageName.setModel(listModel1);
+        serverPackageNameView.setModel(listModel2);
     }
 
     public interface OnCreateListener {
