@@ -36,11 +36,8 @@ public class NewPageFragmentDialog extends JDialog {
     private List<String> intentFlagList;
     private List<String> activityList;
     private List<String> layoutList;
-    private List<String> packageList;
 
     private OnCreateListener onCreateListener;
-    private String selectedActivityName;
-    private String selectedContainerId;
 
     public NewPageFragmentDialog(List<String> intentFlagList, List<String> activityList, List<String> layoutList) {
         this.intentFlagList = intentFlagList;
@@ -529,10 +526,6 @@ public class NewPageFragmentDialog extends JDialog {
         buttonOK.setEnabled(isEnable);
     }
 
-    public void setPackageName(String packageName) {
-        pagePackageNameView.setSelectedItem(packageName);
-    }
-
     public void setActivityList(List<String> activityList) {
         if (activityList == null) return;
         this.activityList = activityList;
@@ -543,7 +536,7 @@ public class NewPageFragmentDialog extends JDialog {
         activityNameView.setModel(listModel);
     }
 
-    public void setPackageList(List<String> packageList) {
+    public void setPackageList(List<String> packageList, String currentPackage) {
         if (packageList == null || packageList.size() == 0) return;
         DefaultComboBoxModel<String> listModel = new DefaultComboBoxModel<>();
         DefaultComboBoxModel<String> listModel1 = new DefaultComboBoxModel<>();
@@ -555,6 +548,7 @@ public class NewPageFragmentDialog extends JDialog {
             listModel2.addElement(packageName);
         }
         pagePackageNameView.setModel(listModel);
+        pagePackageNameView.setSelectedIndex(listModel.getIndexOf(currentPackage));
         viewModelPackageName.setModel(listModel1);
         serverPackageNameView.setModel(listModel2);
     }

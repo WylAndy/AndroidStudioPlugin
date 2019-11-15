@@ -35,16 +35,6 @@ public class CreatePageViewAction extends AnAction {
     public void actionPerformed(AnActionEvent anActionEvent) {
         // TODO: insert action logic here
         if (!isShow) return;
-        Module module = anActionEvent.getData(LangDataKeys.MODULE);
-        if (module == null) {
-            return;
-        }
-        psiDirectoryFactory = PsiDirectoryFactory.getInstance(Objects.requireNonNull(project));
-        VirtualFile rootFile = Objects.requireNonNull(Objects.requireNonNull(module.getModuleFile()).getParent().findChild("src")).findChild("main");
-        if (rootFile == null) {
-            return;
-        }
-        rootDir = psiDirectoryFactory.createDirectory(rootFile);
         if (intentFlags == null) {
             intentFlags = new HashMap<>(21);
             PsiClass psiClass = JavaPsiFacade.getInstance(project).findClass("android.content.Intent", GlobalSearchScope.allScope(project));
@@ -75,9 +65,8 @@ public class CreatePageViewAction extends AnAction {
         layoutList.add("FrameLayout");
         List<String> intentFlagList = new ArrayList<>(intentFlags.keySet());
         pageFragmentDialog = new NewPageFragmentDialog(intentFlagList, activityList, layoutList);
-        pageFragmentDialog.setPackageName(packageName);
         pageFragmentDialog.setOnCreateListener(new OnCreateListener());
-        pageFragmentDialog.setPackageList(packageList);
+        pageFragmentDialog.setPackageList(packageList, packageName);
         pageFragmentDialog.setActivityList(activityList);
         pageFragmentDialog.setTitle("New PageFragment");
         pageFragmentDialog.pack();
@@ -247,16 +236,22 @@ public class CreatePageViewAction extends AnAction {
             return;
         }
         project = anActionEvent.getProject();
-        PsiClass psiClass = JavaPsiFacade.getInstance(Objects.requireNonNull(project)).findClass("com.browser.core.Browser", GlobalSearchScope.allScope(project));
+        Module module = anActionEvent.getData(LangDataKeys.MODULE);
+        PsiClass psiClass = JavaPsiFacade.getInstance(Objects.requireNonNull(project)).findClass("com.browser.core.Browser", Objects.requireNonNull(module).getModuleWithDependenciesAndLibrariesScope(false));
         if (psiClass == null) {
             isShow = false;
             anActionEvent.getPresentation().setVisible(false);
             return;
         }
         isShow = true;
-        if (virtualFiles.length > 1) {
-
+        psiDirectoryFactory = PsiDirectoryFactory.getInstance(Objects.requireNonNull(project));
+        VirtualFile rootFile = Objects.requireNonNull(Objects.requireNonNull(module.getModuleFile()).getParent().findChild("src")).findChild("main");
+        if (rootFile == null) {
+            isShow = false;
+            anActionEvent.getPresentation().setVisible(false);
+            return;
         }
+        rootDir = psiDirectoryFactory.createDirectory(rootFile);
         Object[] objects = anActionEvent.getData(PlatformDataKeys.SELECTED_ITEMS);
         if (objects != null && objects.length > 0 && objects[0] instanceof PsiDirectory) {
             selectedDir = PsiDirectoryFactory.getInstance(project).createDirectory(Objects.requireNonNull(anActionEvent.getData(PlatformDataKeys.VIRTUAL_FILE)));
