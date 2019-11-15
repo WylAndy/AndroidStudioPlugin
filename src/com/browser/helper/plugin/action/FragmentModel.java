@@ -199,6 +199,9 @@ public class FragmentModel implements Runnable {
             }
             if (!TextUtils.isEmpty(layoutName)) {
                 PsiDirectory resDir = rootDir.findSubdirectory("res");
+                if (resDir == null) {
+                    resDir = Objects.requireNonNull(Objects.requireNonNull(rootDir.getParent()).findSubdirectory("main")).findSubdirectory("res");
+                }
                 VirtualFile resFile = makeDirs(Objects.requireNonNull(resDir).getVirtualFile(), "layout");
                 PsiDirectory psiDirectory = PsiDirectoryFactory.getInstance(project).createDirectory(resFile);
                 PsiFile xmlFile = psiDirectory.findFile(layoutName + ".xml");

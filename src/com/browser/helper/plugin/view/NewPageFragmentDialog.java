@@ -548,7 +548,8 @@ public class NewPageFragmentDialog extends JDialog {
             listModel2.addElement(packageName);
         }
         pagePackageNameView.setModel(listModel);
-        pagePackageNameView.setSelectedIndex(listModel.getIndexOf(currentPackage));
+        int index = listModel.getIndexOf(currentPackage);
+        pagePackageNameView.setSelectedIndex(Math.max(index, 0));
         viewModelPackageName.setModel(listModel1);
         serverPackageNameView.setModel(listModel2);
     }
