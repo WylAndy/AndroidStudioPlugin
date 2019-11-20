@@ -18,7 +18,7 @@ public class FragmentModel implements Runnable {
     private String packageName;
     private String name;
     private String containerId;
-    private String id;
+    private String identityName;
     private String activityName;
     private String activityFlags;
     private String viewModelName;
@@ -28,6 +28,8 @@ public class FragmentModel implements Runnable {
     private String serverId;
     private String serverClassName;
     private String serverPackageName;
+    private String permissionList;
+    private boolean isDialog = false;
 
     private PsiDirectory rootDir;
     private Project project;
@@ -55,8 +57,8 @@ public class FragmentModel implements Runnable {
         return this;
     }
 
-    public FragmentModel setId(String id) {
-        this.id = id;
+    public FragmentModel setIdentityName(String identityName) {
+        this.identityName = identityName;
         return this;
     }
 
@@ -115,6 +117,16 @@ public class FragmentModel implements Runnable {
         return this;
     }
 
+    public FragmentModel setPermissionList(String permissionList) {
+        this.permissionList = permissionList;
+        return this;
+    }
+
+    public FragmentModel setDialog(boolean dialog) {
+        isDialog = dialog;
+        return this;
+    }
+
     public String getPackageName() {
         return packageName;
     }
@@ -127,8 +139,8 @@ public class FragmentModel implements Runnable {
         return containerId;
     }
 
-    public String getId() {
-        return id;
+    public String getIdentityName() {
+        return identityName;
     }
 
     public String getActivityName() {
@@ -157,13 +169,19 @@ public class FragmentModel implements Runnable {
         VirtualFile packageFile = makeDirs(Objects.requireNonNull(srcDir).getVirtualFile(), packageName);
         if (packageFile != null) {
             PsiClass fragmentClass = JavaDirectoryService.getInstance().createClass(psiDirectoryFactory.createDirectory(packageFile), name);
+            PsiModifierList modifierList = fragmentClass.getModifierList();
+            if (!Objects.requireNonNull(modifierList).hasModifierProperty(PsiModifier.PUBLIC))
+                modifierList.setModifierProperty(PsiModifier.PUBLIC, true);
             PsiElementFactory psiElementFactory = JavaPsiFacade.getInstance(project).getElementFactory();
             StringBuilder extendsElement = new StringBuilder();
             if (!TextUtils.isEmpty(viewModelName) && !TextUtils.isEmpty(viewModelPackageName)) {
                 extendsElement.append(String.format("com.browser.core.PageFragment<%s.%s>", viewModelPackageName, viewModelName));
                 VirtualFile modelPackageFile = makeDirs(srcDir.getVirtualFile(), viewModelPackageName);
                 if (modelPackageFile.findChild(viewModelName + ".java") == null) {
-                    JavaDirectoryService.getInstance().createClass(psiDirectoryFactory.createDirectory(modelPackageFile), viewModelName);
+                    PsiClass psiClass = JavaDirectoryService.getInstance().createClass(psiDirectoryFactory.createDirectory(modelPackageFile), viewModelName);
+                    modifierList = psiClass.getModifierList();
+                    if (!Objects.requireNonNull(modifierList).hasModifierProperty(PsiModifier.PUBLIC))
+                        modifierList.setModifierProperty(PsiModifier.PUBLIC, true);
                 }
             } else {
                 extendsElement.append("com.browser.core.PageFragment");
@@ -171,19 +189,25 @@ public class FragmentModel implements Runnable {
             PsiElement element = psiElementFactory.createReferenceFromText(extendsElement.toString(), fragmentClass);
             Objects.requireNonNull(fragmentClass.getExtendsList()).add(element);
             PsiElement annotation = psiElementFactory.createAnnotationFromText(createAnnotation(), fragmentClass);
-            fragmentClass.addBefore(annotation, fragmentClass.getFirstChild());
+            fragmentClass.addBefore(annotation, fragmentClass.getModifierList().getFirstChild());
             PsiClass serverClass = null;
             if (!TextUtils.isEmpty(serverClassName) && !TextUtils.isEmpty(serverPackageName)) {
                 VirtualFile serverPackageFile = makeDirs(srcDir.getVirtualFile(), serverPackageName);
                 if (serverPackageFile.findChild(serverClassName + ".java") == null) {
                     PsiDirectory psiDirectory = psiDirectoryFactory.createDirectory(serverPackageFile);
                     serverClass = JavaDirectoryService.getInstance().createClass(psiDirectory, serverClassName);
-                    JavaDirectoryService.getInstance().createInterface(psiDirectory, "I" + serverClassName);
+                    modifierList = serverClass.getModifierList();
+                    if (!Objects.requireNonNull(modifierList).hasModifierProperty(PsiModifier.PUBLIC))
+                        modifierList.setModifierProperty(PsiModifier.PUBLIC, true);
+                    PsiClass iServerClass = JavaDirectoryService.getInstance().createInterface(psiDirectory, "I" + serverClassName);
+                    modifierList = iServerClass.getModifierList();
+                    if (!Objects.requireNonNull(modifierList).hasModifierProperty(PsiModifier.PUBLIC))
+                        modifierList.setModifierProperty(PsiModifier.PUBLIC, true);
                     PsiElement implement = psiElementFactory.createReferenceElementByFQClassName(serverPackageName + "." + "I" + serverClassName, GlobalSearchScope.allScope(project));
                     Objects.requireNonNull(serverClass.getImplementsList()).add(implement);
                     String builder = String.format("@com.browser.annotations.TinyServer( name = \"%s\")", serverId);
                     PsiElement serverAnnotation = psiElementFactory.createAnnotationFromText(builder, serverClass);
-                    serverClass.addBefore(serverAnnotation, serverClass.getFirstChild());
+                    serverClass.addBefore(serverAnnotation, serverClass.getModifierList().getFirstChild());
                 }
                 String iServer = "I" + serverClassName;
                 if (JavaPsiFacade.getInstance(project).findClass(String.format("%s.I%s", serverPackageName, serverClassName), GlobalSearchScope.allScope(project)) != null) {
@@ -229,7 +253,7 @@ public class FragmentModel implements Runnable {
             PsiMethod onLoadFinished = psiElementFactory.createMethodFromText(String.format("@Override\n" +
                     "            protected void onLoadFinished(%s model) {\n" +
                     "\n" +
-                    "            }", viewModelName), fragmentClass);
+                    "            }", TextUtils.isEmpty(viewModelName) ? "java.lang.Object" : viewModelName), fragmentClass);
             fragmentClass.add(onLoadFinished);
             JavaCodeStyleManager styleManager = JavaCodeStyleManager.getInstance(project);
             styleManager.optimizeImports(fragmentClass.getContainingFile());
@@ -251,10 +275,12 @@ public class FragmentModel implements Runnable {
     private String createAnnotation() {
         StringBuilder builder = new StringBuilder();
         builder.append("@com.browser.annotations.PageView(");
-        if (!TextUtils.isEmpty(name)) builder.append(String.format("name = \"%s\"", name));
+        if (!TextUtils.isEmpty(identityName)) builder.append(String.format("name = \"%s\"", identityName));
         if (!TextUtils.isEmpty(activityName)) builder.append(String.format(", \nbrowserName = \"%s\"", activityName));
         if (!TextUtils.isEmpty(containerId)) builder.append(String.format(", \ncontainerId = \"%s\"", containerId));
         if (!TextUtils.isEmpty(activityFlags)) builder.append(String.format(", \nbrowserFlags = %s", activityFlags));
+        if (!TextUtils.isEmpty(permissionList)) builder.append(String.format(", \npermissions = {%s}", permissionList));
+        if (isDialog) builder.append(", \nisDialog = true");
         builder.append(")");
         return builder.toString();
     }

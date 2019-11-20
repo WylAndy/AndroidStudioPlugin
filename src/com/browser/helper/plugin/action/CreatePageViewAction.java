@@ -1,5 +1,6 @@
 package com.browser.helper.plugin.action;
 
+import com.browser.helper.plugin.utils.DirectoryTools;
 import com.browser.helper.plugin.view.NewPageFragmentDialog;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -25,6 +26,7 @@ public class CreatePageViewAction extends AnAction {
 
     private NewPageFragmentDialog pageFragmentDialog;
     private static Map<String, Integer> intentFlags;
+    private static List<String> permissionList;
     private PsiDirectory rootDir = null;
     private Project project;
     private PsiDirectoryFactory psiDirectoryFactory;
@@ -53,6 +55,17 @@ public class CreatePageViewAction extends AnAction {
                 }
             }
         }
+
+        if (permissionList == null) {
+            permissionList = new ArrayList<>(20);
+            PsiClass psiClass = JavaPsiFacade.getInstance(project).findClass("android.Manifest.permission", GlobalSearchScope.allScope(project));
+            if (psiClass != null) {
+                PsiField[] fields = psiClass.getFields();
+                for (PsiField field : fields) {
+                    permissionList.add(field.getName());
+                }
+            }
+        }
         List<String> activityList = getActivityList(sourceDir);
         List<String> packageList = getPackageList(sourceDir);
         List<String> layoutList = new ArrayList<>(4);
@@ -67,6 +80,7 @@ public class CreatePageViewAction extends AnAction {
         pageFragmentDialog = new NewPageFragmentDialog(intentFlagList, activityList, layoutList);
         pageFragmentDialog.setOnCreateListener(new OnCreateListener());
         pageFragmentDialog.setPackageList(packageList, selectedPackageName);
+        pageFragmentDialog.setPermissionList(permissionList);
         pageFragmentDialog.setActivityList(activityList);
         pageFragmentDialog.setTitle("New PageFragment");
         pageFragmentDialog.pack();
@@ -77,7 +91,7 @@ public class CreatePageViewAction extends AnAction {
     private List<String> getActivityList(PsiDirectory directory) {
         List<String> activityList = new ArrayList<>(10);
         if (!directoryService.isSourceRoot(directory)) return activityList;
-        List<PsiDirectory> psiDirectoryList = getSubdirectories(directory);
+        List<PsiDirectory> psiDirectoryList = DirectoryTools.getSubdirectories(directory);
         for (PsiDirectory findDirectory : psiDirectoryList) {
             PsiClass[] psiClasses = Objects.requireNonNull(directoryService.getPackage(findDirectory)).getClasses();
             if (psiClasses.length > 0) {
@@ -93,7 +107,7 @@ public class CreatePageViewAction extends AnAction {
     }
 
     private List<String> getPackageList(@NotNull PsiDirectory rootDir) {
-        List<PsiDirectory> subdirectories = getSubdirectories(rootDir);
+        List<PsiDirectory> subdirectories = DirectoryTools.getSubdirectories(rootDir);
         List<String> packageList = new ArrayList<>(10);
         for (PsiDirectory subDir : subdirectories) {
             PsiPackage psiPackage = JavaDirectoryService.getInstance().getPackage(subDir);
@@ -101,32 +115,6 @@ public class CreatePageViewAction extends AnAction {
                 packageList.add(psiPackage.getQualifiedName());
         }
         return packageList;
-    }
-
-    private List<PsiDirectory> getSubdirectories(@NotNull PsiDirectory rootDir) {
-        PsiDirectory subDirectory = rootDir;
-        Stack<PsiDirectory> dirStack = new Stack<>();
-        List<PsiDirectory> subDirectoryList = new ArrayList<>(10);
-        while (subDirectory != null) {
-            PsiDirectory[] subdirectories = subDirectory.getSubdirectories();
-            for (PsiDirectory subDir : subdirectories) {
-                dirStack.push(subDir);
-                subDirectoryList.add(subDir);
-            }
-            subDirectory = dirStack.size() > 0 ? dirStack.pop() : null;
-        }
-        return subDirectoryList;
-    }
-
-    private PsiDirectory getSourceRoot(@NotNull PsiDirectory directory) {
-        PsiDirectory parent = directory;
-        while (parent != null) {
-            if (directoryService.isSourceRoot(parent)) {
-                return parent;
-            }
-            parent = parent.getParent();
-        }
-        return null;
     }
 
     private String checkActivity(PsiClass psiClass) {
@@ -251,7 +239,7 @@ public class CreatePageViewAction extends AnAction {
             anActionEvent.getPresentation().setVisible(false);
             return;
         }
-        sourceDir = getSourceRoot(selectedDir);
+        sourceDir = DirectoryTools.getSourceRoot(selectedDir);
         if (!Objects.equals("java", sourceDir.getName())) {
             isShow = false;
             anActionEvent.getPresentation().setVisible(false);

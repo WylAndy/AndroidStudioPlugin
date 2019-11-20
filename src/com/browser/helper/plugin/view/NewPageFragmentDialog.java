@@ -19,7 +19,7 @@ public class NewPageFragmentDialog extends JDialog {
     private JTextField pageClassNameView;
     private JComboBox<String> activityNameView;
     private JComboBox<String> containerIds;
-    private JList<String> intentFlags;
+    private JList<String> intentFlagsView;
     private JButton clearButton;
     private JTextField pageFragmentId;
     private JTextField containerIdView;
@@ -33,6 +33,12 @@ public class NewPageFragmentDialog extends JDialog {
     private JTextField serverClassNameView;
     private JComboBox<String> serverPackageNameView;
     private JTextField serverIdView;
+    private JTabbedPane tabbedPane2;
+    private JPanel IntentFlags;
+    private JButton clearPermission;
+    private JCheckBox isDialogView;
+    private JScrollPane intentFlagListView;
+    private JList<String> permissionListView;
     private List<String> intentFlagList;
     private List<String> activityList;
     private List<String> layoutList;
@@ -74,6 +80,17 @@ public class NewPageFragmentDialog extends JDialog {
                 onCancel();
             }
         }, KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+
+        isDialogView.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                boolean isSelected = isDialogView.isSelected();
+                containerIdView.setEnabled(!isSelected);
+                activityNameView.setEnabled(!isSelected);
+                intentFlagsView.setEnabled(!isSelected);
+                if (isSelected) intentFlagsView.clearSelection();
+            }
+        });
 
         pagePackageNameView.getEditor().getEditorComponent().addKeyListener(new KeyListener() {
             @Override
@@ -278,11 +295,18 @@ public class NewPageFragmentDialog extends JDialog {
         for (String intentFlag : intentFlagList) {
             listModel.addElement(intentFlag);
         }
-        intentFlags.setModel(listModel);
+        intentFlagsView.setModel(listModel);
         clearButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                intentFlags.clearSelection();
+                intentFlagsView.clearSelection();
+            }
+        });
+
+        clearPermission.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                permissionListView.clearSelection();
             }
         });
 
@@ -424,16 +448,17 @@ public class NewPageFragmentDialog extends JDialog {
     }
 
     private boolean checkInputValid() {
-        if (TextUtils.isEmpty(containerIdView.getText())) {
+        boolean isDialog = isDialogView.isSelected();
+        if (!isDialog && TextUtils.isEmpty(containerIdView.getText())) {
             Messages.showErrorDialog("Container Id is not set to a valid value", "Error");
             return false;
         } else if (TextUtils.isEmpty(pageFragmentId.getText())) {
-            Messages.showErrorDialog("PageFragment Id is not set to a valid value", "Error");
+            Messages.showErrorDialog("Identify name is not set to a valid value", "Error");
             return false;
         } else if (TextUtils.isEmpty(pageClassNameView.getText()) || TextUtils.isEmpty((String) pagePackageNameView.getSelectedItem())) {
             Messages.showErrorDialog("PageFragment Name is not set to a valid class name", "Error");
             return false;
-        } else if (TextUtils.isEmpty(((String) activityNameView.getSelectedItem()))) {
+        } else if (!isDialog && TextUtils.isEmpty(((String) activityNameView.getSelectedItem()))) {
             Messages.showErrorDialog("Activity Name is not set to a valid class name", "Error");
             return false;
         }
@@ -443,7 +468,7 @@ public class NewPageFragmentDialog extends JDialog {
     private void onOK() {
         if (!checkInputValid()) return;
         StringBuilder flagsBuilder = null;
-        List<String> flags = intentFlags.getSelectedValuesList();
+        List<String> flags = intentFlagsView.getSelectedValuesList();
         int size = flags.size();
         if (size > 0) {
             flagsBuilder = new StringBuilder();
@@ -452,20 +477,33 @@ public class NewPageFragmentDialog extends JDialog {
                 if (i < size - 1) flagsBuilder.append("|");
             }
         }
+        StringBuilder permissionBuilder = null;
+        List<String> permissions = permissionListView.getSelectedValuesList();
+        size = permissions.size();
+        if (size > 0) {
+            permissionBuilder = new StringBuilder();
+            for (int i = 0; i < size; i++) {
+                permissionBuilder.append("android.Manifest.permission.").append(permissions.get(i));
+                if (i < size - 1) permissionBuilder.append(",");
+            }
+        }
+        boolean isDialog = isDialogView.isSelected();
         FragmentModel fragmentModel = new FragmentModel();
         fragmentModel.setViewModelPackageName((String) viewModelPackageName.getSelectedItem())
                 .setName(pageClassNameView.getText())
                 .setPackageName((String) pagePackageNameView.getSelectedItem())
-                .setId(pageFragmentId.getText())
-                .setContainerId(containerIdView.getText())
-                .setActivityName((String) activityNameView.getSelectedItem())
+                .setIdentityName(pageFragmentId.getText())
+                .setContainerId(isDialog ? "" : containerIdView.getText())
+                .setActivityName(isDialog ? "" : (String) activityNameView.getSelectedItem())
                 .setViewModelName(viewModelClassName.getText())
                 .setLayoutName(layoutNameView.getText())
                 .setLayoutRootElement((String) rootElementView.getSelectedItem())
                 .setServerClassName(serverClassNameView.getText())
                 .setServerId(serverIdView.getText())
+                .setDialog(isDialogView.isSelected())
                 .setServerPackageName((String) serverPackageNameView.getSelectedItem())
-                .setActivityFlags(flagsBuilder == null ? "" : flagsBuilder.toString());
+                .setPermissionList(permissionBuilder == null ? "" : permissionBuilder.toString())
+                .setActivityFlags(flagsBuilder == null || isDialog ? "" : flagsBuilder.toString());
         // add your code here
         if (onCreateListener != null) onCreateListener.onOK(fragmentModel);
         clear();
@@ -484,7 +522,7 @@ public class NewPageFragmentDialog extends JDialog {
             activityNameView.setSelectedIndex(0);
         containerIdView.setText("");
         pageFragmentId.setText("");
-        intentFlags.clearSelection();
+        intentFlagsView.clearSelection();
         pageClassNameView.setText("");
         if (pagePackageNameView.getModel().getSize() > 0)
             pagePackageNameView.setSelectedIndex(0);
@@ -534,6 +572,16 @@ public class NewPageFragmentDialog extends JDialog {
             listModel.addElement(name);
         }
         activityNameView.setModel(listModel);
+    }
+
+    public void setPermissionList(List<String> permissionList) {
+        if (permissionList != null && permissionList.size() > 0) {
+            DefaultListModel<String> listModel = new DefaultListModel<>();
+            for (String permission : permissionList) {
+                listModel.addElement(permission);
+            }
+            permissionListView.setModel(listModel);
+        }
     }
 
     public void setPackageList(List<String> packageList, String currentPackage) {
