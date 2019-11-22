@@ -35,8 +35,12 @@ public class CreatePageViewAction extends AnAction {
     private JavaDirectoryService directoryService = JavaDirectoryService.getInstance();
     private PsiDirectory sourceDir;
     private Module module;
+    private PsiClass browserManifest;
     private static final String CLASS_TIP_FORMAT = "%s is not set to a valid class name";
     private static final String NAME_TIP_FORMAT = "%s is not set to a valid name";
+    private static final String FIELD_TIP_FORMAT = "%s is already defined";
+    private String appPackageName = "";
+    private HashMap<String, List<String>> fieldMap = new HashMap<>(10);
 
     @Override
     public void actionPerformed(AnActionEvent anActionEvent) {
@@ -77,6 +81,7 @@ public class CreatePageViewAction extends AnAction {
         layoutList.add("LinearLayout");
         layoutList.add("FrameLayout");
         List<String> intentFlagList = new ArrayList<>(intentFlags.keySet());
+        fieldMap = getFieldMap();
         pageFragmentDialog = new NewPageFragmentDialog(intentFlagList, activityList, layoutList);
         pageFragmentDialog.setOnCreateListener(new OnCreateListener());
         pageFragmentDialog.setPackageList(packageList, selectedPackageName);
@@ -86,6 +91,7 @@ public class CreatePageViewAction extends AnAction {
         pageFragmentDialog.pack();
         pageFragmentDialog.setLocationRelativeTo(WindowManager.getInstance().getFrame(anActionEvent.getProject()));
         pageFragmentDialog.setVisible(true);
+
     }
 
     private List<String> getActivityList(PsiDirectory directory) {
@@ -133,6 +139,27 @@ public class CreatePageViewAction extends AnAction {
         } else {
             return null;
         }
+    }
+
+    private HashMap<String, List<String>> getFieldMap() {
+        browserManifest = findBrowserManifest();
+        if (browserManifest != null) {
+            HashMap<String, List<String>> fieldMap = new HashMap<>(10);
+            PsiClass[] psiClasses = browserManifest.getInnerClasses();
+            if (psiClasses.length > 0) {
+                for (PsiClass psiClass : psiClasses) {
+                    String name = psiClass.getName();
+                    PsiField[] fields = psiClass.getFields();
+                    List<String> fieldNames = new ArrayList<>(20);
+                    for (PsiField field : fields) {
+                        fieldNames.add(field.getName());
+                    }
+                    fieldMap.put(name, fieldNames);
+                }
+                return fieldMap;
+            }
+        }
+        return null;
     }
 
     private Map<String, List<String>> getActivityMap(PsiDirectory directory) {
@@ -210,6 +237,18 @@ public class CreatePageViewAction extends AnAction {
         pageFragmentDialog.showTip(message);
     }
 
+    private PsiClass findBrowserManifest() {
+        JavaPsiFacade psiFacade = JavaPsiFacade.getInstance(project);
+        XmlFile manifest = (XmlFile) rootDir.findFile("AndroidManifest.xml");
+        PsiClass psiClass = null;
+        if (manifest != null) {
+            XmlTag rootTag = manifest.getRootTag();
+            appPackageName = Objects.requireNonNull(rootTag).getAttributeValue("package");
+            psiClass = psiFacade.findClass(appPackageName + ".BrowserManifest", GlobalSearchScope.moduleScope(module));
+        }
+        return psiClass;
+    }
+
     @Override
     public void update(@NotNull AnActionEvent anActionEvent) {
         super.update(anActionEvent);
@@ -252,7 +291,7 @@ public class CreatePageViewAction extends AnAction {
 
     class OnCreateListener implements NewPageFragmentDialog.OnCreateListener {
         private static final String validName = "^[a-zA-Z][a-zA-Z0-9_]*$";
-
+        private boolean isDialog = false;
         @Override
         public void onPackageChanged(String packageName) {
             boolean isValid = psiDirectoryFactory.isValidPackageName(packageName);
@@ -267,13 +306,19 @@ public class CreatePageViewAction extends AnAction {
 
         @Override
         public void onFragmentIdChanged(String fragmentId) {
-            boolean isValid = Pattern.matches(validName, fragmentId);
+            boolean isValid = Pattern.matches(validName, fragmentId) || TextUtils.isEmpty(fragmentId);
             showWarnTip(isValid ? "" : String.format(NAME_TIP_FORMAT, "Fragment Id"));
+            if (isValid && fieldMap != null && fieldMap.size() > 0) {
+                String key = isDialog ? "PageDialog" : "PageView";
+                if (fieldMap.containsKey(key)) {
+                    showWarnTip(fieldMap.get(key).contains(fragmentId) ? String.format(FIELD_TIP_FORMAT, fragmentId) : "");
+                }
+            }
         }
 
         @Override
         public void onViewModelNameChanged(String viewModelName) {
-            boolean isValid = Pattern.matches(validName, viewModelName);
+            boolean isValid = Pattern.matches(validName, viewModelName) || TextUtils.isEmpty(viewModelName);
             showWarnTip(isValid ? "" : String.format(CLASS_TIP_FORMAT, "ViewModel Name"));
         }
 
@@ -285,13 +330,13 @@ public class CreatePageViewAction extends AnAction {
 
         @Override
         public void onContainerIdSelected(String containerId) {
-            boolean isValid = Pattern.matches(validName, containerId);
+            boolean isValid = Pattern.matches(validName, containerId) || TextUtils.isEmpty(containerId);
             showWarnTip(isValid ? "" : String.format(NAME_TIP_FORMAT, "Container Id"));
         }
 
         @Override
         public void onActivitySelected(String activityName) {
-            boolean isValid = psiDirectoryFactory.isValidPackageName(activityName);
+            boolean isValid = psiDirectoryFactory.isValidPackageName(activityName) || TextUtils.isEmpty(activityName);
             showWarnTip(isValid ? "" : String.format(CLASS_TIP_FORMAT, "Activity Name"));
             if (isValid) {
                 PsiClass psiClass = JavaPsiFacade.getInstance(project).findClass(activityName, GlobalSearchScope.moduleWithDependenciesAndLibrariesScope(module));
@@ -301,7 +346,7 @@ public class CreatePageViewAction extends AnAction {
 
         @Override
         public void onLayoutNameChanged(String layoutName) {
-            boolean isValid = Pattern.matches(validName, layoutName);
+            boolean isValid = Pattern.matches(validName, layoutName) || TextUtils.isEmpty(layoutName);
             showWarnTip(isValid ? "" : String.format(NAME_TIP_FORMAT, "Layout Name"));
         }
 
@@ -313,20 +358,53 @@ public class CreatePageViewAction extends AnAction {
 
         @Override
         public void onServerNameChanged(String serverName) {
-            boolean isValid = Pattern.matches(validName, serverName);
+            boolean isValid = Pattern.matches(validName, serverName) || TextUtils.isEmpty(serverName);
             showWarnTip(isValid ? "" : String.format(CLASS_TIP_FORMAT, "TinyServer Name"));
         }
 
         @Override
         public void onServerIdChanged(String serverId) {
-            boolean isValid = Pattern.matches(validName, serverId);
+            boolean isValid = Pattern.matches(validName, serverId) || TextUtils.isEmpty(serverId);
             showWarnTip(isValid ? "" : String.format(NAME_TIP_FORMAT, "TinyServer Id"));
+            if (isValid && fieldMap != null && fieldMap.size() > 0) {
+                String key = "Server";
+                if (fieldMap.containsKey(key)) {
+                    showWarnTip(fieldMap.get(key).contains(serverId) ? String.format(FIELD_TIP_FORMAT, serverId) : "");
+                }
+            }
+        }
+
+        @Override
+        public void onDialogChanged(boolean isDialog) {
+            this.isDialog = isDialog;
+            String containerId = pageFragmentDialog.getContainerId();
+            String activityName = pageFragmentDialog.getActivityName();
+            PsiClass psiClass = JavaPsiFacade.getInstance(project).findClass(activityName, GlobalSearchScope.moduleWithDependenciesAndLibrariesScope(module));
+            if (!isDialog) {
+                boolean idIsValid = Pattern.matches(validName, containerId) || TextUtils.isEmpty(containerId);
+                boolean nameIsValid = psiDirectoryFactory.isValidPackageName(activityName) || TextUtils.isEmpty(activityName);
+                if (idIsValid && nameIsValid && psiClass != null) {
+                    showWarnTip("");
+                } else if (!idIsValid) {
+                    onFragmentIdChanged(containerId);
+                } else {
+                    onActivitySelected(activityName);
+                }
+            } else {
+                boolean isValid = (Pattern.matches(validName, containerId) || TextUtils.isEmpty(containerId)) &&
+                        (psiDirectoryFactory.isValidPackageName(activityName) || TextUtils.isEmpty(activityName)) && psiClass != null;
+                if (!isValid) {
+                    showWarnTip("");
+                }
+            }
         }
 
         @Override
         public void onOK(FragmentModel model) {
             model.setRootDir(rootDir)
+                    .setModule(module)
                     .setProject(project)
+                    .setAppPackageName(appPackageName)
                     .build();
         }
 

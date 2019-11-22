@@ -3,7 +3,9 @@ package com.browser.helper.plugin.action;
 import com.intellij.codeInsight.actions.ReformatCodeProcessor;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.fileTypes.StdFileTypes;
+import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.JavaCodeStyleManager;
@@ -12,6 +14,8 @@ import com.intellij.psi.search.GlobalSearchScope;
 import org.apache.http.util.TextUtils;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 public class FragmentModel implements Runnable {
@@ -33,13 +37,22 @@ public class FragmentModel implements Runnable {
 
     private PsiDirectory rootDir;
     private Project project;
-
-    public FragmentModel(PsiDirectory rootDir, Project project) {
-        this.rootDir = rootDir;
-        this.project = project;
-    }
+    private Module module;
+    private String appPackageName;
+    private PsiElementFactory elementFactory;
 
     public FragmentModel() {
+    }
+
+    public FragmentModel setModule(Module module) {
+        this.module = module;
+        return this;
+    }
+
+
+    public FragmentModel setAppPackageName(String appPackageName) {
+        this.appPackageName = appPackageName;
+        return this;
     }
 
     public FragmentModel setPackageName(String packageName) {
@@ -89,6 +102,8 @@ public class FragmentModel implements Runnable {
 
     public FragmentModel setProject(Project project) {
         this.project = project;
+        //TODO PsiElementFactory.getInstance(project)会抛出异常，不知原因？
+        elementFactory = JavaPsiFacade.getInstance(this.project).getElementFactory();
         return this;
     }
 
@@ -163,12 +178,33 @@ public class FragmentModel implements Runnable {
         return layoutName;
     }
 
+    private void addField(PsiClass psiClass, String name, String value) {
+        if (psiClass != null) {
+            PsiField field = psiClass.findFieldByName(name, false);
+            if (field == null) {
+                field = elementFactory.createFieldFromText(String.format("public static final String %s = \"%s\";", name, value), psiClass);
+                psiClass.add(field);
+            }
+        }
+    }
+
     private void buildClass() {
-        PsiDirectory srcDir = rootDir.findSubdirectory("java");
         PsiDirectoryFactory psiDirectoryFactory = PsiDirectoryFactory.getInstance(project);
+        PsiDirectory srcDir = rootDir.findSubdirectory("java");
+
         VirtualFile packageFile = makeDirs(Objects.requireNonNull(srcDir).getVirtualFile(), packageName);
         if (packageFile != null) {
             PsiClass fragmentClass = JavaDirectoryService.getInstance().createClass(psiDirectoryFactory.createDirectory(packageFile), name);
+            PsiClass browserManifest = createBrowserManifest();
+            if (browserManifest != null) {
+                if (isDialog) {
+                    PsiClass dialogClass = browserManifest.findInnerClassByName("PageDialog", false);
+                    if (dialogClass != null) addField(dialogClass, identityName, fragmentClass.getQualifiedName());
+                } else {
+                    PsiClass pageClass = browserManifest.findInnerClassByName("PageView", false);
+                    if (pageClass != null) addField(pageClass, identityName, fragmentClass.getQualifiedName());
+                }
+            }
             PsiModifierList modifierList = fragmentClass.getModifierList();
             if (!Objects.requireNonNull(modifierList).hasModifierProperty(PsiModifier.PUBLIC))
                 modifierList.setModifierProperty(PsiModifier.PUBLIC, true);
@@ -189,7 +225,8 @@ public class FragmentModel implements Runnable {
             PsiElement element = psiElementFactory.createReferenceFromText(extendsElement.toString(), fragmentClass);
             Objects.requireNonNull(fragmentClass.getExtendsList()).add(element);
             PsiElement annotation = psiElementFactory.createAnnotationFromText(createAnnotation(), fragmentClass);
-            fragmentClass.addBefore(annotation, fragmentClass.getModifierList().getFirstChild());
+            PsiModifierList psiModifierList = fragmentClass.getModifierList();
+            psiModifierList.addBefore(annotation, psiModifierList.getFirstChild());
             PsiClass serverClass = null;
             if (!TextUtils.isEmpty(serverClassName) && !TextUtils.isEmpty(serverPackageName)) {
                 VirtualFile serverPackageFile = makeDirs(srcDir.getVirtualFile(), serverPackageName);
@@ -203,11 +240,18 @@ public class FragmentModel implements Runnable {
                     modifierList = iServerClass.getModifierList();
                     if (!Objects.requireNonNull(modifierList).hasModifierProperty(PsiModifier.PUBLIC))
                         modifierList.setModifierProperty(PsiModifier.PUBLIC, true);
+                    PsiElement psiElement = psiElementFactory.createReferenceElementByFQClassName("com.browser.core.BusinessServer", GlobalSearchScope.allScope(project));
+                    Objects.requireNonNull(serverClass.getExtendsList()).add(psiElement);
                     PsiElement implement = psiElementFactory.createReferenceElementByFQClassName(serverPackageName + "." + "I" + serverClassName, GlobalSearchScope.allScope(project));
                     Objects.requireNonNull(serverClass.getImplementsList()).add(implement);
-                    String builder = String.format("@com.browser.annotations.TinyServer( name = \"%s\")", serverId);
-                    PsiElement serverAnnotation = psiElementFactory.createAnnotationFromText(builder, serverClass);
-                    serverClass.addBefore(serverAnnotation, serverClass.getModifierList().getFirstChild());
+//                    String builder = String.format("@com.browser.annotations.TinyServer( name = \"%s\")", serverId);
+//                    PsiElement serverAnnotation = psiElementFactory.createAnnotationFromText(builder, serverClass);
+//                    serverClass.addBefore(serverAnnotation, serverClass.getModifierList().getFirstChild());
+                }
+                if (browserManifest != null) {
+                    PsiClass server = browserManifest.findInnerClassByName("Server", false);
+                    if (server != null)
+                        addField(server, serverId, Objects.requireNonNull(serverClass).getQualifiedName());
                 }
                 String iServer = "I" + serverClassName;
                 if (JavaPsiFacade.getInstance(project).findClass(String.format("%s.I%s", serverPackageName, serverClassName), GlobalSearchScope.allScope(project)) != null) {
@@ -267,6 +311,51 @@ public class FragmentModel implements Runnable {
         }
     }
 
+    private PsiClass createBrowserManifest() {
+        JavaPsiFacade psiFacade = JavaPsiFacade.getInstance(project);
+        PsiDirectoryFactory psiDirectoryFactory = PsiDirectoryFactory.getInstance(project);
+        JavaDirectoryService directoryService = JavaDirectoryService.getInstance();
+            if (!TextUtils.isEmpty(appPackageName)) {
+                PsiClass pageClass;
+                PsiClass dialogClass;
+                PsiClass serverClass;
+                PsiClass psiClass = psiFacade.findClass(appPackageName + ".BrowserManifest", GlobalSearchScope.moduleScope(module));
+                if (psiClass == null) {
+                    PsiDirectory srcDir = rootDir.findSubdirectory("java");
+                    psiClass = directoryService.createClass(psiDirectoryFactory.createDirectory(FragmentModel.makeDirs(Objects.requireNonNull(srcDir).getVirtualFile(), Objects.requireNonNull(appPackageName))), "BrowserManifest");
+                    PsiModifierList modifierList = psiClass.getModifierList();
+                    if (modifierList != null) {
+                        modifierList.setModifierProperty(PsiModifier.PUBLIC, true);
+                        modifierList.setModifierProperty(PsiModifier.FINAL, true);
+                    }
+                    pageClass = createChildClass("PageView", PsiModifier.PUBLIC, PsiModifier.STATIC, PsiModifier.FINAL);
+                    dialogClass = createChildClass("PageDialog", PsiModifier.PUBLIC, PsiModifier.STATIC, PsiModifier.FINAL);
+                    serverClass = createChildClass("Server", PsiModifier.PUBLIC, PsiModifier.STATIC, PsiModifier.FINAL);
+                    if (pageClass != null) psiClass.add(pageClass);
+                    if (dialogClass != null) psiClass.add(dialogClass);
+                    if (serverClass != null) psiClass.add(serverClass);
+                }
+                return psiClass;
+            }
+        return null;
+    }
+
+
+    private PsiClass createChildClass(final String name, String... modifiers) {
+        try {
+            PsiClass psiClass = elementFactory.createClass(name);
+            PsiModifierList modifierList = psiClass.getModifierList();
+            if (modifierList != null) {
+                for (String modifier : modifiers) {
+                    modifierList.setModifierProperty(modifier, true);
+                }
+            }
+            return psiClass;
+        } catch (Throwable e) {
+            Messages.showErrorDialog(e.getMessage(), "error");
+        }
+        return null;
+    }
     @Override
     public void run() {
         buildClass();
@@ -274,13 +363,40 @@ public class FragmentModel implements Runnable {
 
     private String createAnnotation() {
         StringBuilder builder = new StringBuilder();
+        HashMap<String, String> values = new HashMap<>(5);
+        if (!TextUtils.isEmpty(activityName)) values.put("browserName",activityName);
+        if (!TextUtils.isEmpty(containerId)) values.put("containerId", containerId);
+        if (!TextUtils.isEmpty(activityFlags)) values.put("browserFlags", activityFlags);
+        if (!TextUtils.isEmpty(permissionList)) values.put("permissions", permissionList);
+        if (isDialog) values.put("isDialog", "true");
+        String format1 = "%s = \"%s\"";
+        String format2 = "%s = %s";
+        String format3 = "%s = {%s}";
         builder.append("@com.browser.annotations.PageView(");
-        if (!TextUtils.isEmpty(identityName)) builder.append(String.format("name = \"%s\"", identityName));
-        if (!TextUtils.isEmpty(activityName)) builder.append(String.format(", \nbrowserName = \"%s\"", activityName));
-        if (!TextUtils.isEmpty(containerId)) builder.append(String.format(", \ncontainerId = \"%s\"", containerId));
-        if (!TextUtils.isEmpty(activityFlags)) builder.append(String.format(", \nbrowserFlags = %s", activityFlags));
-        if (!TextUtils.isEmpty(permissionList)) builder.append(String.format(", \npermissions = {%s}", permissionList));
-        if (isDialog) builder.append(", \nisDialog = true");
+        int size = values.size();
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            String key = entry.getKey();
+            String format;
+            switch (key) {
+                case "browserName":
+                case "containerId":
+                    format = format1;
+                    break;
+                case "isDialog":
+                case "browserFlags":
+                    format = format2;
+                    break;
+                case "permissions":
+                    format = format3;
+                    break;
+                default:
+                    format = "%s = \"%s\"";
+                    break;
+            }
+            builder.append(String.format(format, entry.getKey(), entry.getValue()));
+            size --;
+            if (size > 0) builder.append(",\n");
+        }
         builder.append(")");
         return builder.toString();
     }
@@ -289,7 +405,7 @@ public class FragmentModel implements Runnable {
         WriteCommandAction.runWriteCommandAction(project, this);
     }
 
-    private VirtualFile makeDirs(VirtualFile virtualFile, String path) {
+    public static VirtualFile makeDirs(VirtualFile virtualFile, String path) {
         String[] subDirs = path.contains(".") ? path.split("\\.") : path.contains("/") ? path.split("/") : new String[]{path};
         VirtualFile rootFile = virtualFile;
         for (String subDir : subDirs) {

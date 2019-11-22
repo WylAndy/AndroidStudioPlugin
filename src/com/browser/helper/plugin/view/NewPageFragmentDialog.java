@@ -23,7 +23,6 @@ public class NewPageFragmentDialog extends JDialog {
     private JButton clearButton;
     private JTextField pageFragmentId;
     private JTextField containerIdView;
-    private JTabbedPane tabbedPane1;
     private JPanel ViewModel;
     private JComboBox<String> viewModelPackageName;
     private JTextField viewModelClassName;
@@ -33,7 +32,6 @@ public class NewPageFragmentDialog extends JDialog {
     private JTextField serverClassNameView;
     private JComboBox<String> serverPackageNameView;
     private JTextField serverIdView;
-    private JTabbedPane tabbedPane2;
     private JPanel IntentFlags;
     private JButton clearPermission;
     private JCheckBox isDialogView;
@@ -89,6 +87,7 @@ public class NewPageFragmentDialog extends JDialog {
                 activityNameView.setEnabled(!isSelected);
                 intentFlagsView.setEnabled(!isSelected);
                 if (isSelected) intentFlagsView.clearSelection();
+                if (onCreateListener != null) onCreateListener.onDialogChanged(isSelected);
             }
         });
 
@@ -287,6 +286,15 @@ public class NewPageFragmentDialog extends JDialog {
                 if (onCreateListener != null) {
                     JTextField jTextField = (JTextField) e.getSource();
                     onCreateListener.onActivitySelected(jTextField.getText());
+                }
+            }
+        });
+
+        activityNameView.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                if (e.getStateChange() == ItemEvent.SELECTED) {
+                    if (onCreateListener != null) onCreateListener.onActivitySelected((String) e.getItem());
                 }
             }
         });
@@ -602,6 +610,14 @@ public class NewPageFragmentDialog extends JDialog {
         serverPackageNameView.setModel(listModel2);
     }
 
+    public String getContainerId() {
+        return containerIdView.getText();
+    }
+
+    public String getActivityName() {
+        return (String) activityNameView.getSelectedItem();
+    }
+
     public interface OnCreateListener {
         void onPackageChanged(String packageName);
 
@@ -624,6 +640,8 @@ public class NewPageFragmentDialog extends JDialog {
         void onServerNameChanged(String serverName);
 
         void onServerIdChanged(String serverId);
+
+        void onDialogChanged(boolean isDialog);
 
         void onOK(FragmentModel model);
 
