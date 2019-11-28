@@ -228,6 +228,7 @@ public class FragmentModel implements Runnable {
             PsiModifierList psiModifierList = fragmentClass.getModifierList();
             psiModifierList.addBefore(annotation, psiModifierList.getFirstChild());
             PsiClass serverClass = null;
+            PsiClass iServerClass = null;
             if (!TextUtils.isEmpty(serverClassName) && !TextUtils.isEmpty(serverPackageName)) {
                 VirtualFile serverPackageFile = makeDirs(srcDir.getVirtualFile(), serverPackageName);
                 if (serverPackageFile.findChild(serverClassName + ".java") == null) {
@@ -236,10 +237,12 @@ public class FragmentModel implements Runnable {
                     modifierList = serverClass.getModifierList();
                     if (!Objects.requireNonNull(modifierList).hasModifierProperty(PsiModifier.PUBLIC))
                         modifierList.setModifierProperty(PsiModifier.PUBLIC, true);
-                    PsiClass iServerClass = JavaDirectoryService.getInstance().createInterface(psiDirectory, "I" + serverClassName);
+                    iServerClass = JavaDirectoryService.getInstance().createInterface(psiDirectory, "I" + serverClassName);
                     modifierList = iServerClass.getModifierList();
                     if (!Objects.requireNonNull(modifierList).hasModifierProperty(PsiModifier.PUBLIC))
                         modifierList.setModifierProperty(PsiModifier.PUBLIC, true);
+                    PsiElement serverAnnotation = psiElementFactory.createAnnotationFromText("@com.browser.annotations.TinyServer", fragmentClass);
+                    modifierList.addBefore(serverAnnotation, modifierList.getFirstChild());
                     PsiElement psiElement = psiElementFactory.createReferenceElementByFQClassName("com.browser.core.BusinessServer", GlobalSearchScope.allScope(project));
                     Objects.requireNonNull(serverClass.getExtendsList()).add(psiElement);
                     PsiElement implement = psiElementFactory.createReferenceElementByFQClassName(serverPackageName + "." + "I" + serverClassName, GlobalSearchScope.allScope(project));
@@ -287,10 +290,10 @@ public class FragmentModel implements Runnable {
                 }
                 PsiMethod onCreateView = psiElementFactory.createMethodFromText(String.format("@Override\n" +
                         "            public android.view.View onCreateView(%s inflater, %s container, %s savedInstanceState) {\n" +
-                        "               View view = inflater.inflate(R.layout.%s, container, false);\n" +
+                        "               View view = inflater.inflate(%s.R.layout.%s, container, false);\n" +
                         "               com.browser.core.Browser.getInstance().bind(this, view);\n" +
                         "               return view;\n" +
-                        "            }", "android.view.LayoutInflater", "android.view.ViewGroup", "android.os.Bundle", layoutName), fragmentClass);
+                        "            }", "android.view.LayoutInflater", "android.view.ViewGroup", "android.os.Bundle", appPackageName, layoutName), fragmentClass);
                 fragmentClass.add(onCreateView);
             }
 
@@ -307,6 +310,12 @@ public class FragmentModel implements Runnable {
                 styleManager.optimizeImports(serverClass.getContainingFile());
                 styleManager.shortenClassReferences(serverClass);
                 new ReformatCodeProcessor(project, serverClass.getContainingFile(), null, false).runWithoutProgress();
+            }
+
+            if (iServerClass != null) {
+                styleManager.optimizeImports(iServerClass.getContainingFile());
+                styleManager.shortenClassReferences(iServerClass);
+                new ReformatCodeProcessor(project, iServerClass.getContainingFile(), null, false).runWithoutProgress();
             }
         }
     }

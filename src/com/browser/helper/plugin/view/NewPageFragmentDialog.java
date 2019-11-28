@@ -475,6 +475,7 @@ public class NewPageFragmentDialog extends JDialog {
 
     private void onOK() {
         if (!checkInputValid()) return;
+        dispose();
         StringBuilder flagsBuilder = null;
         List<String> flags = intentFlagsView.getSelectedValuesList();
         int size = flags.size();
@@ -515,7 +516,6 @@ public class NewPageFragmentDialog extends JDialog {
         // add your code here
         if (onCreateListener != null) onCreateListener.onOK(fragmentModel);
         clear();
-        dispose();
     }
 
     private void onCancel() {
@@ -616,6 +616,10 @@ public class NewPageFragmentDialog extends JDialog {
 
     public String getActivityName() {
         return (String) activityNameView.getSelectedItem();
+    }
+
+    public String getPackageName() {
+        return (String) pagePackageNameView.getSelectedItem();
     }
 
     public interface OnCreateListener {

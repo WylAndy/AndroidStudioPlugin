@@ -292,16 +292,27 @@ public class CreatePageViewAction extends AnAction {
     class OnCreateListener implements NewPageFragmentDialog.OnCreateListener {
         private static final String validName = "^[a-zA-Z][a-zA-Z0-9_]*$";
         private boolean isDialog = false;
+        private String packageName;
+        private String fragmentName;
         @Override
         public void onPackageChanged(String packageName) {
             boolean isValid = psiDirectoryFactory.isValidPackageName(packageName);
             showWarnTip(isValid ? "" : String.format(CLASS_TIP_FORMAT, "PageFragment Name"));
+            if (isValid) {
+                this.packageName = packageName;
+                showWarnTip(fragmentExist(packageName, fragmentName) ? "this file is already exist" : "");
+            }
         }
 
         @Override
         public void onFragmentNameChanged(String fragmentName) {
             boolean isValid = Pattern.matches(validName, fragmentName);
             showWarnTip(isValid ? "" : String.format(CLASS_TIP_FORMAT, "PageFragment Name"));
+            if (isValid) {
+                this.fragmentName = fragmentName;
+                if (TextUtils.isEmpty(packageName)) packageName = pageFragmentDialog.getPackageName();
+                showWarnTip(fragmentExist(packageName, fragmentName) ? "this file is already exist" : "");
+            }
         }
 
         @Override
@@ -411,6 +422,11 @@ public class CreatePageViewAction extends AnAction {
         @Override
         public void onCancel() {
 
+        }
+
+        boolean fragmentExist(String packageName, String name) {
+            PsiClass psiClass = JavaPsiFacade.getInstance(project).findClass(String.format("%s.%s", packageName, name), GlobalSearchScope.moduleWithDependenciesAndLibrariesScope(module));
+            return psiClass != null;
         }
     }
 }
