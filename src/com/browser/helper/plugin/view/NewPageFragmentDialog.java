@@ -1,6 +1,7 @@
 package com.browser.helper.plugin.view;
 
 import com.browser.helper.plugin.action.FragmentModel;
+import com.browser.helper.plugin.utils.NoticeDialog;
 import com.intellij.openapi.ui.Messages;
 import org.apache.http.util.TextUtils;
 
@@ -11,7 +12,7 @@ import javax.swing.text.BadLocationException;
 import java.awt.event.*;
 import java.util.List;
 
-public class NewPageFragmentDialog extends JDialog {
+public class NewPageFragmentDialog extends NoticeDialog {
     private JPanel contentPane;
     private JButton buttonOK;
     private JButton buttonCancel;
@@ -515,35 +516,12 @@ public class NewPageFragmentDialog extends JDialog {
                 .setActivityFlags(flagsBuilder == null || isDialog ? "" : flagsBuilder.toString());
         // add your code here
         if (onCreateListener != null) onCreateListener.onOK(fragmentModel);
-        clear();
     }
 
     private void onCancel() {
         // add your code here if necessary
         if (onCreateListener != null) onCreateListener.onCancel();
-        clear();
         dispose();
-    }
-
-    private void clear() {
-        if (activityNameView.getModel().getSize() > 0)
-            activityNameView.setSelectedIndex(0);
-        containerIdView.setText("");
-        pageFragmentId.setText("");
-        intentFlagsView.clearSelection();
-        pageClassNameView.setText("");
-        if (pagePackageNameView.getModel().getSize() > 0)
-            pagePackageNameView.setSelectedIndex(0);
-        layoutNameView.setText("");
-        if (rootElementView.getModel().getSize() > 0)
-            rootElementView.setSelectedIndex(0);
-        if (viewModelPackageName.getModel().getSize() > 0)
-            viewModelPackageName.setSelectedIndex(0);
-        viewModelClassName.setText("");
-        serverIdView.setText("");
-        if (serverPackageNameView.getModel().getSize() > 0)
-            serverPackageNameView.setSelectedIndex(0);
-        serverClassNameView.setText("");
     }
 
 //    public static void main(String[] args) {
@@ -562,14 +540,16 @@ public class NewPageFragmentDialog extends JDialog {
         return this;
     }
 
-    public void showTip(String message) {
-        boolean isEmpty = TextUtils.isEmpty(message);
-        tipLabel.setText(message);
-        tipLabel.setVisible(!isEmpty);
+    @Override
+    protected void setEnableOk(boolean isEnable) {
+        buttonOK.setEnabled(isEnable);
     }
 
-    public void setEnableOk(boolean isEnable) {
-        buttonOK.setEnabled(isEnable);
+    @Override
+    protected void showNotice(String content) {
+        boolean isEmpty = TextUtils.isEmpty(content);
+        tipLabel.setText(content);
+        tipLabel.setVisible(!isEmpty);
     }
 
     public void setActivityList(List<String> activityList) {

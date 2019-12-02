@@ -40,6 +40,11 @@
             <add-to-group group-id="GenerateGroup" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="alt G"/>
         </action>
+        <action id="__add_annotation" class="com.browser.helper.plugin.action.AddAnnotationsAction" text="Add annotations"
+                description="add annotations for method or class">
+            <add-to-group group-id="GenerateGroup" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="alt A"/>
+        </action>
     </actions>
 
 </idea-plugin>

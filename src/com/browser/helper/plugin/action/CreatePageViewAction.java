@@ -1,6 +1,8 @@
 package com.browser.helper.plugin.action;
 
 import com.browser.helper.plugin.utils.DirectoryTools;
+import com.browser.helper.plugin.utils.NoticeDialog;
+import com.browser.helper.plugin.utils.NoticeModel;
 import com.browser.helper.plugin.view.NewPageFragmentDialog;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -41,6 +43,7 @@ public class CreatePageViewAction extends AnAction {
     private static final String FIELD_TIP_FORMAT = "%s is already defined";
     private String appPackageName = "";
     private HashMap<String, List<String>> fieldMap = new HashMap<>(10);
+    private NoticeDialog noticeDialog;
 
     @Override
     public void actionPerformed(AnActionEvent anActionEvent) {
@@ -82,7 +85,7 @@ public class CreatePageViewAction extends AnAction {
         layoutList.add("FrameLayout");
         List<String> intentFlagList = new ArrayList<>(intentFlags.keySet());
         fieldMap = getFieldMap();
-        pageFragmentDialog = new NewPageFragmentDialog(intentFlagList, activityList, layoutList);
+        noticeDialog = pageFragmentDialog = new NewPageFragmentDialog(intentFlagList, activityList, layoutList);
         pageFragmentDialog.setOnCreateListener(new OnCreateListener());
         pageFragmentDialog.setPackageList(packageList, selectedPackageName);
         pageFragmentDialog.setPermissionList(permissionList);
@@ -91,7 +94,6 @@ public class CreatePageViewAction extends AnAction {
         pageFragmentDialog.pack();
         pageFragmentDialog.setLocationRelativeTo(WindowManager.getInstance().getFrame(anActionEvent.getProject()));
         pageFragmentDialog.setVisible(true);
-
     }
 
     private List<String> getActivityList(PsiDirectory directory) {
@@ -231,12 +233,6 @@ public class CreatePageViewAction extends AnAction {
         }
     }
 
-
-    private void showWarnTip(String message) {
-        pageFragmentDialog.setEnableOk(TextUtils.isEmpty(message));
-        pageFragmentDialog.showTip(message);
-    }
-
     private PsiClass findBrowserManifest() {
         JavaPsiFacade psiFacade = JavaPsiFacade.getInstance(project);
         XmlFile manifest = (XmlFile) rootDir.findFile("AndroidManifest.xml");
@@ -294,35 +290,36 @@ public class CreatePageViewAction extends AnAction {
         private boolean isDialog = false;
         private String packageName;
         private String fragmentName;
+
         @Override
         public void onPackageChanged(String packageName) {
             boolean isValid = psiDirectoryFactory.isValidPackageName(packageName);
-            showWarnTip(isValid ? "" : String.format(CLASS_TIP_FORMAT, "PageFragment Name"));
+            noticeDialog.showWarnTip(new NoticeModel("fragmentPackage", isValid ? "" : String.format(CLASS_TIP_FORMAT, "PageFragment Name")));
             if (isValid) {
                 this.packageName = packageName;
-                showWarnTip(fragmentExist(packageName, fragmentName) ? "this file is already exist" : "");
+                noticeDialog.showWarnTip(new NoticeModel("fragmentPackage", fragmentExist(packageName, fragmentName) ? "this file is already exist" : ""));
             }
         }
 
         @Override
         public void onFragmentNameChanged(String fragmentName) {
             boolean isValid = Pattern.matches(validName, fragmentName);
-            showWarnTip(isValid ? "" : String.format(CLASS_TIP_FORMAT, "PageFragment Name"));
+            noticeDialog.showWarnTip(new NoticeModel("onFragmentNameChanged", isValid ? "" : String.format(CLASS_TIP_FORMAT, "PageFragment Name")));
             if (isValid) {
                 this.fragmentName = fragmentName;
                 if (TextUtils.isEmpty(packageName)) packageName = pageFragmentDialog.getPackageName();
-                showWarnTip(fragmentExist(packageName, fragmentName) ? "this file is already exist" : "");
+                noticeDialog.showWarnTip(new NoticeModel("onFragmentNameChanged", fragmentExist(packageName, fragmentName) ? "this file is already exist" : ""));
             }
         }
 
         @Override
         public void onFragmentIdChanged(String fragmentId) {
             boolean isValid = Pattern.matches(validName, fragmentId) || TextUtils.isEmpty(fragmentId);
-            showWarnTip(isValid ? "" : String.format(NAME_TIP_FORMAT, "Fragment Id"));
+            noticeDialog.showWarnTip(new NoticeModel("onFragmentIdChanged", isValid ? "" : String.format(NAME_TIP_FORMAT, "Fragment Id")));
             if (isValid && fieldMap != null && fieldMap.size() > 0) {
                 String key = isDialog ? "PageDialog" : "PageView";
                 if (fieldMap.containsKey(key)) {
-                    showWarnTip(fieldMap.get(key).contains(fragmentId) ? String.format(FIELD_TIP_FORMAT, fragmentId) : "");
+                    noticeDialog.showWarnTip(new NoticeModel("onFragmentIdChanged", fieldMap.get(key).contains(fragmentId) ? String.format(FIELD_TIP_FORMAT, fragmentId) : ""));
                 }
             }
         }
@@ -330,57 +327,57 @@ public class CreatePageViewAction extends AnAction {
         @Override
         public void onViewModelNameChanged(String viewModelName) {
             boolean isValid = Pattern.matches(validName, viewModelName) || TextUtils.isEmpty(viewModelName);
-            showWarnTip(isValid ? "" : String.format(CLASS_TIP_FORMAT, "ViewModel Name"));
+            noticeDialog.showWarnTip(new NoticeModel("onViewModelNameChanged", isValid ? "" : String.format(CLASS_TIP_FORMAT, "ViewModel Name")));
         }
 
         @Override
         public void onViewModelPackageNameChanged(String viewModelPackageName) {
             boolean isValid = psiDirectoryFactory.isValidPackageName(viewModelPackageName);
-            showWarnTip(isValid ? "" : String.format(CLASS_TIP_FORMAT, "ViewModel Name"));
+            noticeDialog.showWarnTip(new NoticeModel("onViewModelPackageNameChanged", isValid ? "" : String.format(CLASS_TIP_FORMAT, "ViewModel Name")));
         }
 
         @Override
         public void onContainerIdSelected(String containerId) {
             boolean isValid = Pattern.matches(validName, containerId) || TextUtils.isEmpty(containerId);
-            showWarnTip(isValid ? "" : String.format(NAME_TIP_FORMAT, "Container Id"));
+            noticeDialog.showWarnTip(new NoticeModel("onContainerIdSelected", isValid ? "" : String.format(NAME_TIP_FORMAT, "Container Id")));
         }
 
         @Override
         public void onActivitySelected(String activityName) {
             boolean isValid = psiDirectoryFactory.isValidPackageName(activityName) || TextUtils.isEmpty(activityName);
-            showWarnTip(isValid ? "" : String.format(CLASS_TIP_FORMAT, "Activity Name"));
-            if (isValid) {
+            noticeDialog.showWarnTip(new NoticeModel("onActivitySelected", isValid ? "" : String.format(CLASS_TIP_FORMAT, "Activity Name")));
+            if (isValid && !TextUtils.isEmpty(activityName)) {
                 PsiClass psiClass = JavaPsiFacade.getInstance(project).findClass(activityName, GlobalSearchScope.moduleWithDependenciesAndLibrariesScope(module));
-                showWarnTip(psiClass == null ? "Activity is not defined" : "");
+                noticeDialog.showWarnTip(new NoticeModel("onActivitySelected", psiClass == null ? "Activity is not defined" : ""));
             }
         }
 
         @Override
         public void onLayoutNameChanged(String layoutName) {
             boolean isValid = Pattern.matches(validName, layoutName) || TextUtils.isEmpty(layoutName);
-            showWarnTip(isValid ? "" : String.format(NAME_TIP_FORMAT, "Layout Name"));
+            noticeDialog.showWarnTip(new NoticeModel("onLayoutNameChanged", isValid ? "" : String.format(NAME_TIP_FORMAT, "Layout Name")));
         }
 
         @Override
         public void onServerPackageChanged(String packageName) {
             boolean isValid = psiDirectoryFactory.isValidPackageName(packageName);
-            showWarnTip(isValid ? "" : String.format(CLASS_TIP_FORMAT, "TinyServer Name"));
+            noticeDialog.showWarnTip(new NoticeModel("onServerPackageChanged", isValid ? "" : String.format(CLASS_TIP_FORMAT, "TinyServer Name")));
         }
 
         @Override
         public void onServerNameChanged(String serverName) {
             boolean isValid = Pattern.matches(validName, serverName) || TextUtils.isEmpty(serverName);
-            showWarnTip(isValid ? "" : String.format(CLASS_TIP_FORMAT, "TinyServer Name"));
+            noticeDialog.showWarnTip(new NoticeModel("onServerNameChanged", isValid ? "" : String.format(CLASS_TIP_FORMAT, "TinyServer Name")));
         }
 
         @Override
         public void onServerIdChanged(String serverId) {
             boolean isValid = Pattern.matches(validName, serverId) || TextUtils.isEmpty(serverId);
-            showWarnTip(isValid ? "" : String.format(NAME_TIP_FORMAT, "TinyServer Id"));
+            noticeDialog.showWarnTip(new NoticeModel("onServerIdChanged", isValid ? "" : String.format(NAME_TIP_FORMAT, "TinyServer Id")));
             if (isValid && fieldMap != null && fieldMap.size() > 0) {
                 String key = "Server";
                 if (fieldMap.containsKey(key)) {
-                    showWarnTip(fieldMap.get(key).contains(serverId) ? String.format(FIELD_TIP_FORMAT, serverId) : "");
+                    noticeDialog.showWarnTip(new NoticeModel("onServerIdChanged", fieldMap.get(key).contains(serverId) ? String.format(FIELD_TIP_FORMAT, serverId) : ""));
                 }
             }
         }
@@ -395,7 +392,7 @@ public class CreatePageViewAction extends AnAction {
                 boolean idIsValid = Pattern.matches(validName, containerId) || TextUtils.isEmpty(containerId);
                 boolean nameIsValid = psiDirectoryFactory.isValidPackageName(activityName) || TextUtils.isEmpty(activityName);
                 if (idIsValid && nameIsValid && psiClass != null) {
-                    showWarnTip("");
+                    noticeDialog.showWarnTip(new NoticeModel("onDialogChanged", ""));
                 } else if (!idIsValid) {
                     onFragmentIdChanged(containerId);
                 } else {
@@ -405,7 +402,7 @@ public class CreatePageViewAction extends AnAction {
                 boolean isValid = (Pattern.matches(validName, containerId) || TextUtils.isEmpty(containerId)) &&
                         (psiDirectoryFactory.isValidPackageName(activityName) || TextUtils.isEmpty(activityName)) && psiClass != null;
                 if (!isValid) {
-                    showWarnTip("");
+                    noticeDialog.showWarnTip(new NoticeModel("onDialogChanged", ""));
                 }
             }
         }
