@@ -26,9 +26,7 @@ import java.util.regex.Pattern;
 
 public class AddAnnotationsAction extends AnAction {
 
-    private PsiFile classFile;
     private PsiClass interfaceClass;
-    private AddAnnotationsDialog annotationsDialog;
     private Module module;
     private PsiClass manifestClass;
     private HashMap<String, String> fieldMap = new HashMap<>(20);
@@ -85,7 +83,8 @@ public class AddAnnotationsAction extends AnAction {
             for (PsiMethod method : psiMethods) {
                 methodMap.put(String.format("%s%s", method.getName(), method.getParameterList().getText()), method);
             }
-            noticeDialog = annotationsDialog = new AddAnnotationsDialog();
+            AddAnnotationsDialog annotationsDialog = new AddAnnotationsDialog();
+            noticeDialog = annotationsDialog;
             annotationsDialog.setPageNameList(pageNameList)
                     .setMethodMap(methodMap)
                     .setServerNameList(serverList)
@@ -105,10 +104,8 @@ public class AddAnnotationsAction extends AnAction {
         boolean isVisible = false;
         module = e.getData(LangDataKeys.MODULE);
         if (module != null) {
-            classFile = e.getData(LangDataKeys.PSI_FILE);
-            if (classFile == null || !(classFile instanceof PsiJavaFile)) {
-                isVisible = false;
-            } else {
+            PsiFile classFile = e.getData(LangDataKeys.PSI_FILE);
+            if ((classFile instanceof PsiJavaFile)) {
                 PsiJavaFile javaFile = (PsiJavaFile) classFile;
                 PsiClass[] classes = javaFile.getClasses();
                 PsiClass serverClass = null;
@@ -122,8 +119,6 @@ public class AddAnnotationsAction extends AnAction {
                     isVisible = false;
                 }
             }
-        } else {
-            isVisible = false;
         }
         presentation.setVisible(isVisible);
     }
