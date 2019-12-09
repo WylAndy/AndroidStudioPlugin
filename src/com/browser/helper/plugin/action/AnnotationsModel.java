@@ -3,10 +3,11 @@ package com.browser.helper.plugin.action;
 import com.intellij.codeInsight.actions.ReformatCodeProcessor;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.Messages;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.JavaCodeStyleManager;
 import org.apache.http.util.TextUtils;
+
+import java.util.List;
 
 public class AnnotationsModel implements Runnable {
     private boolean hasPage;
@@ -16,7 +17,7 @@ public class AnnotationsModel implements Runnable {
     private String priority;
     private boolean isSticky;
     private Project project;
-    private PsiMethod method;
+    private List<PsiMethod> methodList;
     private PsiClass interfaceClass;
     private String manifestPackageName;
 
@@ -26,35 +27,39 @@ public class AnnotationsModel implements Runnable {
 
     @Override
     public void run() {
-        if (method.hasAnnotation("com.browser.annotations.Injection")) {
-            Messages.showErrorDialog(method.getProject(), "@Injection is already exist", "Error");
-            return;
-        }
-        PsiModifierList modifierList = method.getModifierList();
-        PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(project);
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append(String.format("@com.browser.annotations.Injection( source = %s.Server.%s, threadMode = com.browser.annotations.ThreadMode.%s", manifestPackageName, serverPackageName, threadMode));
-        if (!TextUtils.isEmpty(priority)) {
-            stringBuilder.append(String.format("\n, priority = %s", priority));
-        }
-        if (isSticky) {
-            stringBuilder.append(", sticky = true");
-        }
-        stringBuilder.append(")");
-        PsiElement injectAnnotation = elementFactory.createAnnotationFromText(stringBuilder.toString(), method);
-        modifierList.addBefore(injectAnnotation, modifierList.getFirstChild());
-        if (hasPage) {
-            if (method.hasAnnotation("com.browser.annotations.Page")) {
-                Messages.showErrorDialog(method.getProject(), "@Page is already exist", "Error");
-            } else {
-                PsiElement pageAnnotation = elementFactory.createAnnotationFromText(String.format("@com.browser.annotations.Page( name = %s.%s)", manifestPackageName, pageName), method);
-                modifierList.addBefore(pageAnnotation, modifierList.getFirstChild());
+        for (PsiMethod method : methodList) {
+            if (method.hasAnnotation("com.browser.annotations.Injection")) {
+                continue;
             }
+            PsiModifierList modifierList = method.getModifierList();
+            PsiElementFactory elementFactory = JavaPsiFacade.getElementFactory(project);
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append(String.format("@com.browser.annotations.Injection( source = %s.Server.%s, threadMode = com.browser.annotations.ThreadMode.%s", manifestPackageName, serverPackageName, threadMode));
+            if (!TextUtils.isEmpty(priority)) {
+                stringBuilder.append(String.format("\n, priority = %s", priority));
+            }
+            if (isSticky) {
+                stringBuilder.append(", sticky = true");
+            }
+            stringBuilder.append(")");
+            PsiElement injectAnnotation = elementFactory.createAnnotationFromText(stringBuilder.toString(), method);
+            modifierList.addBefore(injectAnnotation, modifierList.getFirstChild());
+            if (hasPage) {
+                if (!method.hasAnnotation("com.browser.annotations.Page")) {
+                    PsiElement pageAnnotation = elementFactory.createAnnotationFromText(String.format("@com.browser.annotations.Page( name = %s.%s)", manifestPackageName, pageName), method);
+                    modifierList.addBefore(pageAnnotation, modifierList.getFirstChild());
+                    String fieldName = method.getName();
+                    if (interfaceClass.findFieldByName(fieldName, false) == null) {
+                        PsiElement field = elementFactory.createFieldFromText(String.format("String %s = \"%s\";", fieldName, fieldName), interfaceClass);
+                        interfaceClass.add(field);
+                    }
+                }
+            }
+            JavaCodeStyleManager styleManager = JavaCodeStyleManager.getInstance(project);
+            styleManager.optimizeImports(interfaceClass.getContainingFile());
+            styleManager.shortenClassReferences(interfaceClass);
+            new ReformatCodeProcessor(project, interfaceClass.getContainingFile(), null, false).runWithoutProgress();
         }
-        JavaCodeStyleManager styleManager = JavaCodeStyleManager.getInstance(project);
-        styleManager.optimizeImports(interfaceClass.getContainingFile());
-        styleManager.shortenClassReferences(interfaceClass);
-        new ReformatCodeProcessor(project, interfaceClass.getContainingFile(), null, false).runWithoutProgress();
     }
 
     public static class Builder {
@@ -99,8 +104,8 @@ public class AnnotationsModel implements Runnable {
             return this;
         }
 
-        public Builder setMethod(PsiMethod method) {
-            model.method = method;
+        public Builder setMethodList(List<PsiMethod> methodList) {
+            model.methodList = methodList;
             return this;
         }
 

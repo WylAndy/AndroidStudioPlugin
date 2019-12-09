@@ -8,7 +8,6 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.LangDataKeys;
 import com.intellij.openapi.actionSystem.Presentation;
-import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.WindowManager;
@@ -19,15 +18,16 @@ import com.intellij.psi.search.GlobalSearchScope;
 import org.apache.http.util.TextUtils;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 public class AddAnnotationsAction extends AnAction {
 
     private PsiFile classFile;
     private PsiClass interfaceClass;
-    private Editor editor;
-    private PsiMethod[] interfaceMethods;
     private AddAnnotationsDialog annotationsDialog;
     private Module module;
     private PsiClass manifestClass;
@@ -37,7 +37,7 @@ public class AddAnnotationsAction extends AnAction {
     @Override
     public void actionPerformed(AnActionEvent e) {
         // TODO: insert action logic here
-        if (editor != null && interfaceClass != null && interfaceMethods != null) {
+        if (interfaceClass != null) {
             Project project = e.getProject();
             PsiDirectory rootDir = Objects.requireNonNull(DirectoryTools.getSourceRoot(Objects.requireNonNull(interfaceClass.getContainingFile().getParent()))).getParent();
             manifestClass = DirectoryTools.findBrowserManifest(Objects.requireNonNull(rootDir), module);
@@ -80,8 +80,14 @@ public class AddAnnotationsAction extends AnAction {
                     threadModeList.add(field.getName());
                 }
             }
+            HashMap<String, PsiMethod> methodMap = new HashMap<>(10);
+            PsiMethod[] psiMethods = interfaceClass.getMethods();
+            for (PsiMethod method : psiMethods) {
+                methodMap.put(String.format("%s%s", method.getName(), method.getParameterList().getText()), method);
+            }
             noticeDialog = annotationsDialog = new AddAnnotationsDialog();
             annotationsDialog.setPageNameList(pageNameList)
+                    .setMethodMap(methodMap)
                     .setServerNameList(serverList)
                     .setThreadModeList(threadModeList)
                     .setDialogListener(new AnnotationsDialogListener());
@@ -97,26 +103,21 @@ public class AddAnnotationsAction extends AnAction {
         super.update(e);
         Presentation presentation = e.getPresentation();
         boolean isVisible = false;
-        editor = e.getData(LangDataKeys.EDITOR);
         module = e.getData(LangDataKeys.MODULE);
-        if (editor != null && module != null) {
+        if (module != null) {
             classFile = e.getData(LangDataKeys.PSI_FILE);
             if (classFile == null || !(classFile instanceof PsiJavaFile)) {
                 isVisible = false;
             } else {
                 PsiJavaFile javaFile = (PsiJavaFile) classFile;
                 PsiClass[] classes = javaFile.getClasses();
-                PsiClass serverClass = classes[0];
-                if (serverClass.isInterface()) {
+                PsiClass serverClass = null;
+                for (PsiClass psiClass : classes) {
+                    if (psiClass.hasAnnotation("com.browser.annotations.TinyServer") && psiClass.isInterface()) serverClass = psiClass;
+                }
+                if (serverClass != null) {
                     interfaceClass = serverClass;
-                    String methodName = editor.getSelectionModel().getSelectedText();
-                    PsiMethod[] psiMethods = interfaceClass.findMethodsByName(methodName, false);
-                    if (psiMethods.length > 0) {
-                        interfaceMethods = psiMethods;
-                        isVisible = true;
-                    } else {
-                        isVisible = false;
-                    }
+                    isVisible = true;
                 } else {
                     isVisible = false;
                 }
@@ -160,7 +161,6 @@ public class AddAnnotationsAction extends AnAction {
         public void onOK(AnnotationsModel.Builder builder) {
             builder.setInterfaceClass(interfaceClass)
                     .setManifestPackageName(manifestClass.getQualifiedName())
-                    .setMethod(interfaceMethods[0])
                     .setProject(module.getProject())
                     .build();
         }

@@ -3,6 +3,7 @@ package com.browser.helper.plugin.view;
 import com.browser.helper.plugin.action.AnnotationsModel;
 import com.browser.helper.plugin.utils.NoticeDialog;
 import com.browser.helper.plugin.utils.NoticeModel;
+import com.intellij.psi.PsiMethod;
 import org.apache.http.util.TextUtils;
 
 import javax.swing.*;
@@ -10,7 +11,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.BadLocationException;
 import java.awt.event.*;
-import java.util.List;
+import java.util.*;
 
 public class AddAnnotationsDialog extends NoticeDialog {
     private JPanel contentPane;
@@ -23,7 +24,10 @@ public class AddAnnotationsDialog extends NoticeDialog {
     private JCheckBox stickyValueView;
     private JCheckBox pageAnnotationView;
     private JLabel tipLabel;
+    private JList<String> methodListView;
+    private JButton clearMethod;
     private DialogListener dialogListener;
+    private HashMap<String, PsiMethod> methodMap;
 
     public AddAnnotationsDialog() {
         setContentPane(contentPane);
@@ -57,6 +61,13 @@ public class AddAnnotationsDialog extends NoticeDialog {
             }
         }, KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
 
+        clearMethod.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                methodListView.clearSelection();
+            }
+        });
+
         pageNameValueView.addItemListener(new ItemListener() {
             @Override
             public void itemStateChanged(ItemEvent e) {
@@ -78,7 +89,9 @@ public class AddAnnotationsDialog extends NoticeDialog {
         pageAnnotationView.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                enablePage(pageAnnotationView.isSelected());
+                boolean isSelected = pageAnnotationView.isSelected();
+                enablePage(isSelected);
+                setPageMethodList(isSelected, methodMap);
             }
         });
 
@@ -131,6 +144,7 @@ public class AddAnnotationsDialog extends NoticeDialog {
         dispose();
         if (dialogListener != null) {
             AnnotationsModel.Builder builder = AnnotationsModel.newBuilder()
+                    .setMethodList(getMethodList(methodListView.getSelectedValuesList()))
                     .setHasPage(pageAnnotationView.isSelected())
                     .setPageName((String) pageNameValueView.getSelectedItem())
                     .setServerPackageName((String) implicationValueView.getSelectedItem())
@@ -139,6 +153,14 @@ public class AddAnnotationsDialog extends NoticeDialog {
                     .setSticky(stickyValueView.isSelected());
             dialogListener.onOK(builder);
         }
+    }
+
+    private List<PsiMethod> getMethodList(List<String> selectedList) {
+        ArrayList<PsiMethod> methods = new ArrayList<>(10);
+        for (String selected : selectedList) {
+            methods.add(methodMap.get(selected));
+        }
+        return methods;
     }
 
     private void onCancel() {
@@ -150,7 +172,7 @@ public class AddAnnotationsDialog extends NoticeDialog {
 
     private void enablePage(boolean isEnable) {
         pageNameValueView.setEnabled(isEnable);
-        if (dialogListener != null)  {
+        if (dialogListener != null) {
             dialogListener.onEnablePage(isEnable);
             if (isEnable) dialogListener.onPageNameChanged((String) pageNameValueView.getSelectedItem());
         }
@@ -163,6 +185,32 @@ public class AddAnnotationsDialog extends NoticeDialog {
         }
         pageNameValueView.setModel(comboBoxModel);
         return this;
+    }
+
+    public AddAnnotationsDialog setMethodMap(HashMap<String, PsiMethod> methodMap) {
+        this.methodMap = methodMap;
+        DefaultListModel<String> comboBoxModel = new DefaultListModel<>();
+        for (Map.Entry<String, PsiMethod> entry : methodMap.entrySet()) {
+            comboBoxModel.addElement(entry.getKey());
+        }
+        methodListView.setVisibleRowCount(comboBoxModel.size() > 4 ? 5 : comboBoxModel.size());
+        methodListView.setModel(comboBoxModel);
+        return this;
+    }
+
+    private void setPageMethodList(boolean isPage, HashMap<String, PsiMethod> methodMap) {
+        DefaultListModel<String> comboBoxModel = new DefaultListModel<>();
+        for (Map.Entry<String, PsiMethod> entry : methodMap.entrySet()) {
+            PsiMethod method = entry.getValue();
+            if (isPage && !Objects.equals("void", Objects.requireNonNull(method.getReturnType()).getCanonicalText())) {
+                comboBoxModel.addElement(entry.getKey());
+            } else if (!isPage) {
+                comboBoxModel.addElement(entry.getKey());
+            }
+        }
+        methodListView.setVisibleRowCount(comboBoxModel.size() > 4 ? 5 : comboBoxModel.size());
+        methodListView.updateUI();
+        methodListView.setModel(comboBoxModel);
     }
 
     public AddAnnotationsDialog setServerNameList(List<String> serverNameList) {
