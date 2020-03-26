@@ -13,7 +13,7 @@ import javax.swing.text.BadLocationException;
 import java.awt.event.*;
 import java.util.*;
 
-public class AddAnnotationsDialog extends NoticeDialog {
+public class AddMethodAnnotationsDialog extends NoticeDialog {
     private JPanel contentPane;
     private JButton buttonOK;
     private JButton buttonCancel;
@@ -29,7 +29,7 @@ public class AddAnnotationsDialog extends NoticeDialog {
     private DialogListener dialogListener;
     private HashMap<String, PsiMethod> methodMap;
 
-    public AddAnnotationsDialog() {
+    public AddMethodAnnotationsDialog() {
         setContentPane(contentPane);
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
@@ -178,7 +178,7 @@ public class AddAnnotationsDialog extends NoticeDialog {
         }
     }
 
-    public AddAnnotationsDialog setPageNameList(List<String> pageNameList) {
+    public AddMethodAnnotationsDialog setPageNameList(List<String> pageNameList) {
         DefaultComboBoxModel<String> comboBoxModel = new DefaultComboBoxModel<>();
         for (String name : pageNameList) {
             comboBoxModel.addElement(name);
@@ -187,7 +187,7 @@ public class AddAnnotationsDialog extends NoticeDialog {
         return this;
     }
 
-    public AddAnnotationsDialog setMethodMap(HashMap<String, PsiMethod> methodMap) {
+    public AddMethodAnnotationsDialog setMethodMap(HashMap<String, PsiMethod> methodMap) {
         this.methodMap = methodMap;
         DefaultListModel<String> comboBoxModel = new DefaultListModel<>();
         for (Map.Entry<String, PsiMethod> entry : methodMap.entrySet()) {
@@ -213,7 +213,7 @@ public class AddAnnotationsDialog extends NoticeDialog {
         methodListView.setModel(comboBoxModel);
     }
 
-    public AddAnnotationsDialog setServerNameList(List<String> serverNameList) {
+    public AddMethodAnnotationsDialog setServerNameList(List<String> serverNameList) {
         DefaultComboBoxModel<String> comboBoxModel = new DefaultComboBoxModel<>();
         for (String name : serverNameList) {
             comboBoxModel.addElement(name);
@@ -222,7 +222,7 @@ public class AddAnnotationsDialog extends NoticeDialog {
         return this;
     }
 
-    public AddAnnotationsDialog setThreadModeList(List<String> threadModeList) {
+    public AddMethodAnnotationsDialog setThreadModeList(List<String> threadModeList) {
         DefaultComboBoxModel<String> comboBoxModel = new DefaultComboBoxModel<>();
         for (String name : threadModeList) {
             comboBoxModel.addElement(name);
@@ -231,7 +231,7 @@ public class AddAnnotationsDialog extends NoticeDialog {
         return this;
     }
 
-    public AddAnnotationsDialog setDialogListener(DialogListener dialogListener) {
+    public AddMethodAnnotationsDialog setDialogListener(DialogListener dialogListener) {
         this.dialogListener = dialogListener;
         if (dialogListener != null) {
             dialogListener.onImplicationChanged((String) implicationValueView.getSelectedItem());

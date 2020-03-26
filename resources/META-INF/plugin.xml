@@ -45,6 +45,10 @@
             <add-to-group group-id="GenerateGroup" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="alt A"/>
         </action>
+        <action id="__add_field_annotation_action__" class="com.browser.helper.plugin.action.AddFieldWithAnnotationsAction"
+                text="Bind view" description="add annotation of field">
+            <add-to-group group-id="GenerateGroup" anchor="first"/>
+        </action>
     </actions>
 
 </idea-plugin>

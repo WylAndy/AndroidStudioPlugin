@@ -3,7 +3,7 @@ package com.browser.helper.plugin.action;
 import com.browser.helper.plugin.utils.DirectoryTools;
 import com.browser.helper.plugin.utils.NoticeDialog;
 import com.browser.helper.plugin.utils.NoticeModel;
-import com.browser.helper.plugin.view.AddAnnotationsDialog;
+import com.browser.helper.plugin.view.AddMethodAnnotationsDialog;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.LangDataKeys;
@@ -83,7 +83,7 @@ public class AddAnnotationsAction extends AnAction {
             for (PsiMethod method : psiMethods) {
                 methodMap.put(String.format("%s%s", method.getName(), method.getParameterList().getText()), method);
             }
-            AddAnnotationsDialog annotationsDialog = new AddAnnotationsDialog();
+            AddMethodAnnotationsDialog annotationsDialog = new AddMethodAnnotationsDialog();
             noticeDialog = annotationsDialog;
             annotationsDialog.setPageNameList(pageNameList)
                     .setMethodMap(methodMap)
@@ -123,7 +123,7 @@ public class AddAnnotationsAction extends AnAction {
         presentation.setVisible(isVisible);
     }
 
-    private class AnnotationsDialogListener implements AddAnnotationsDialog.DialogListener {
+    private class AnnotationsDialogListener implements AddMethodAnnotationsDialog.DialogListener {
 
         private static final String validName = "^(0|\\+?[1-9][0-9]*)$";
 
