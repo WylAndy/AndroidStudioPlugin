@@ -1,10 +1,12 @@
 package com.browser.helper.plugin.action;
 
+import com.browser.helper.plugin.view.AddFieldWithAnnotationDialog;
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.wm.WindowManager;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
@@ -29,6 +31,10 @@ public class AddFieldWithAnnotationsAction extends AnAction {
             id = id.replace("@+id/", "");
             idList.add(new Pair<>(tag.getName(), id));
         }
+        AddFieldWithAnnotationDialog annotationDialog = new AddFieldWithAnnotationDialog(idList);
+        annotationDialog.pack();
+        annotationDialog.setLocationRelativeTo(WindowManager.getInstance().getFrame(module.getProject()));
+        annotationDialog.setVisible(true);
     }
 
     @Override
