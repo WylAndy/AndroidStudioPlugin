@@ -38,7 +38,7 @@ public class AddAnnotationsAction extends AnAction {
         if (interfaceClass != null) {
             Project project = e.getProject();
             PsiDirectory rootDir = Objects.requireNonNull(DirectoryTools.getSourceRoot(Objects.requireNonNull(interfaceClass.getContainingFile().getParent()))).getParent();
-            manifestClass = DirectoryTools.findBrowserManifest(Objects.requireNonNull(rootDir), module);
+            manifestClass = DirectoryTools.findBrowserManifest(project);
             List<String> pageNameList = new ArrayList<>(10);
             List<String> serverList = new ArrayList<>(10);
             if (manifestClass != null) {

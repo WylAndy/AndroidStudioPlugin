@@ -22,7 +22,6 @@ public class AddMethodAnnotationsDialog extends NoticeDialog {
     private JComboBox<String> threadModeValueView;
     private JTextField priorityValueView;
     private JCheckBox stickyValueView;
-    private JCheckBox pageAnnotationView;
     private JLabel tipLabel;
     private JList<String> methodListView;
     private JButton clearMethod;
@@ -86,15 +85,6 @@ public class AddMethodAnnotationsDialog extends NoticeDialog {
             }
         });
 
-        pageAnnotationView.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                boolean isSelected = pageAnnotationView.isSelected();
-                enablePage(isSelected);
-                setPageMethodList(isSelected, methodMap);
-            }
-        });
-
         priorityValueView.setToolTipText("只能输入非负整数！");
         priorityValueView.getDocument().addDocumentListener(new DocumentListener() {
             @Override
@@ -145,7 +135,6 @@ public class AddMethodAnnotationsDialog extends NoticeDialog {
         if (dialogListener != null) {
             AnnotationsModel.Builder builder = AnnotationsModel.newBuilder()
                     .setMethodList(getMethodList(methodListView.getSelectedValuesList()))
-                    .setHasPage(pageAnnotationView.isSelected())
                     .setPageName((String) pageNameValueView.getSelectedItem())
                     .setServerPackageName((String) implicationValueView.getSelectedItem())
                     .setThreadMode((String) threadModeValueView.getSelectedItem())

@@ -14,9 +14,14 @@ import org.apache.http.util.TextUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
-public class AddFieldWithAnnotationsAction extends AnAction {
+public class AddFieldWithAnnotationsAction extends AnAction implements AddFieldWithAnnotationDialog.DialogListener {
+    private final int ADD_BIND_VIEW = 0X01;
+    private final int ADD_ON_CLICK = ADD_BIND_VIEW << 1;
+    private final int ADD_ON_LONG_CLICK = ADD_ON_CLICK << 1;
+    private HashMap<String, Integer> idMap = new HashMap<>(10);
     private Module module;
     private XmlFile xmlFile;
     @Override
@@ -31,7 +36,7 @@ public class AddFieldWithAnnotationsAction extends AnAction {
             id = id.replace("@+id/", "");
             idList.add(new Pair<>(tag.getName(), id));
         }
-        AddFieldWithAnnotationDialog annotationDialog = new AddFieldWithAnnotationDialog(idList);
+        AddFieldWithAnnotationDialog annotationDialog = new AddFieldWithAnnotationDialog().setFieldList(idList).setDialogListener(this);
         annotationDialog.pack();
         annotationDialog.setLocationRelativeTo(WindowManager.getInstance().getFrame(module.getProject()));
         annotationDialog.setVisible(true);
@@ -57,5 +62,35 @@ public class AddFieldWithAnnotationsAction extends AnAction {
         xmlFile = (XmlFile) PsiManager.getInstance(module.getProject()).findFile(virtualFile);
         if (xmlFile == null) return;
         presentation.setVisible(true);
+    }
+
+    @Override
+    public void onAddBindView(String id) {
+        addFlags(id, ADD_BIND_VIEW);
+    }
+
+    @Override
+    public void onAddOnClick(String id) {
+        addFlags(id, ADD_ON_CLICK);
+    }
+
+    @Override
+    public void onAddOnLongClick(String id) {
+        addFlags(id, ADD_ON_LONG_CLICK);
+    }
+
+    @Override
+    public void onOk() {
+
+    }
+
+    private void addFlags(String id, int flag) {
+        if (idMap.containsKey(id)) {
+            int flags = idMap.get(id);
+            flags |= flag;
+            idMap.put(id, flags);
+        } else {
+            idMap.put(id, flag);
+        }
     }
 }

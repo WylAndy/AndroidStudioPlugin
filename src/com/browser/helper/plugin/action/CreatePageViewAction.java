@@ -57,7 +57,7 @@ public class CreatePageViewAction extends AnAction {
             PsiField[] psiFields = psiClass.getFields();
             for (PsiField psiField : psiFields) {
                 String fieldName = psiField.getName();
-                if (fieldName != null && fieldName.startsWith("FLAG_ACTIVITY_")) {
+                if (fieldName.startsWith("FLAG_ACTIVITY_")) {
                     intentFlags.put(fieldName, (Integer) psiField.computeConstantValue());
                 }
             }
@@ -235,14 +235,7 @@ public class CreatePageViewAction extends AnAction {
 
     private PsiClass findBrowserManifest() {
         JavaPsiFacade psiFacade = JavaPsiFacade.getInstance(project);
-        XmlFile manifest = (XmlFile) rootDir.findFile("AndroidManifest.xml");
-        PsiClass psiClass = null;
-        if (manifest != null) {
-            XmlTag rootTag = manifest.getRootTag();
-            appPackageName = Objects.requireNonNull(rootTag).getAttributeValue("package");
-            psiClass = psiFacade.findClass(appPackageName + ".BrowserManifest", GlobalSearchScope.moduleScope(module));
-        }
-        return psiClass;
+            return psiFacade.findClass("com.browser.manifest" + ".BrowserManifest", GlobalSearchScope.allScope(project));
     }
 
     @Override

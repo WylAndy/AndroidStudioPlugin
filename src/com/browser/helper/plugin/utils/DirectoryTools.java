@@ -1,6 +1,7 @@
 package com.browser.helper.plugin.utils;
 
 import com.intellij.openapi.module.Module;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.JavaDirectoryService;
 import com.intellij.psi.JavaPsiFacade;
@@ -46,16 +47,9 @@ public class DirectoryTools {
         return subDirectoryList;
     }
 
-    public static PsiClass findBrowserManifest(PsiDirectory rootDir, Module module) {
-        JavaPsiFacade psiFacade = JavaPsiFacade.getInstance(module.getProject());
-        XmlFile manifest = (XmlFile) rootDir.findFile("AndroidManifest.xml");
-        PsiClass psiClass = null;
-        if (manifest != null) {
-            XmlTag rootTag = manifest.getRootTag();
-            String appPackageName = Objects.requireNonNull(rootTag).getAttributeValue("package");
-            psiClass = psiFacade.findClass(appPackageName + ".BrowserManifest", GlobalSearchScope.moduleScope(module));
-        }
-        return psiClass;
+    public static PsiClass findBrowserManifest(Project project) {
+        JavaPsiFacade psiFacade = JavaPsiFacade.getInstance(project);
+        return psiFacade.findClass("com.browser.manifest" + ".BrowserManifest", GlobalSearchScope.allScope(project));
     }
 
     public static VirtualFile makeDirs(VirtualFile virtualFile, String path) {

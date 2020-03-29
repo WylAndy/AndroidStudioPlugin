@@ -21,14 +21,20 @@
         <children>
           <scrollpane id="7b952">
             <constraints>
-              <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+              <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
             </constraints>
-            <properties/>
-            <border type="none" title="FieldList" title-justification="1" title-position="1"/>
+            <properties>
+              <background color="-12566465"/>
+            </properties>
+            <border type="none" title="ViewTable" title-justification="1" title-position="1"/>
             <children>
-              <component id="48921" class="javax.swing.JList" binding="fieldListView">
+              <component id="73747" class="javax.swing.JTable" binding="viewTable">
                 <constraints/>
-                <properties/>
+                <properties>
+                  <maximumSize width="2147483647" height="10"/>
+                  <minimumSize width="30" height="10"/>
+                  <preferredScrollableViewportSize width="450" height="80"/>
+                </properties>
               </component>
             </children>
           </scrollpane>
